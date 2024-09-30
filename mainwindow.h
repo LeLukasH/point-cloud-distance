@@ -42,7 +42,8 @@ protected:
     pcl::visualization::PCLVisualizer::Ptr viewer1;
     pcl::visualization::PCLVisualizer::Ptr viewer2;
 
-    void refreshView();
+    void refreshView1();
+    void refreshView2();
 
 private:
     Ui::MainWindow *ui;

@@ -21,8 +21,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->openButton2, &QPushButton::clicked, this, &MainWindow::openFileForViewer2);
     connect(ui->pointSizeSlider1, &QSlider::valueChanged, this, &MainWindow::onSlider1ValueChanged);
     connect(ui->pointSizeSlider2, &QSlider::valueChanged, this, &MainWindow::onSlider2ValueChanged);
-    connect(ui->pointSizeSlider1, &QSlider::sliderReleased, this, &MainWindow::refreshView);
-    connect(ui->pointSizeSlider2, &QSlider::sliderReleased, this, &MainWindow::refreshView);
+    connect(ui->pointSizeSlider1, &QSlider::sliderReleased, this, &MainWindow::refreshView1);
+    connect(ui->pointSizeSlider2, &QSlider::sliderReleased, this, &MainWindow::refreshView2);
 
     //viewer2.setPosition(0, 500);
 
@@ -47,10 +47,13 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::refreshView() {
+void MainWindow::refreshView1() {
     viewer1->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize1, "cloud1");
-    viewer2->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize2, "cloud2");
     ui->qvtkWidget1->renderWindow()->Render();
+}
+
+void MainWindow::refreshView2() {
+    viewer2->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize2, "cloud2");
     ui->qvtkWidget2->renderWindow()->Render();
 }
 

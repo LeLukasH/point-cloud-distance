@@ -7,7 +7,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
-typedef pcl::PointXYZRGBA PointT;
+typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 
 QT_BEGIN_NAMESPACE
@@ -30,6 +30,9 @@ private slots:
     void openFileForViewer2();
     void onSlider1ValueChanged(double value);
     void onSlider2ValueChanged(double value);
+
+    void onCalculateHausdorffDistance();
+    double hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
 
 private:
     double pointSize1 = 3;

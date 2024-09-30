@@ -10,13 +10,31 @@
     <height>600</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralWidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>800</width>
+     <height>540</height>
+    </size>
+   </property>
    <layout class="QHBoxLayout" name="horizontalLayout" stretch="3,3,2">
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout">
+     <layout class="QVBoxLayout" name="verticalLayout" stretch="6,1,2">
       <item>
        <widget class="PCLQVTKWidget" name="qvtkWidget1"/>
       </item>
@@ -63,7 +81,7 @@
      </layout>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_2" stretch="6,1,2">
       <item>
        <widget class="PCLQVTKWidget" name="qvtkWidget2"/>
       </item>
@@ -110,9 +128,9 @@
      </layout>
     </item>
     <item>
-     <widget class="QPushButton" name="pushButton">
+     <widget class="QPushButton" name="calculateButton">
       <property name="text">
-       <string>PushButton</string>
+       <string>Calculate</string>
       </property>
      </widget>
     </item>

@@ -30,4 +30,4 @@ LIBS += -L"D:/PROGRAMS/vcpkg2/installed/x64-windows/lib"
 LIBS += -lvtkCommonCore -lvtkCommonDataModel -lvtkCommonMath -lvtkFiltersCore -lvtkRenderingCore -lvtkRenderingOpenGL2 -lvtkGUISupportQt -lvtksys
 
 LIBS += -L"D:/PROGRAMS/vcpkg2/installed/x64-windows/lib"
-LIBS += -lpcl_common -lpcl_io -lpcl_filters -lpcl_visualization
+LIBS += -lpcl_common -lpcl_io -lpcl_filters -lpcl_visualization -lpcl_search

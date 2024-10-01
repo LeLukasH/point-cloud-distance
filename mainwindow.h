@@ -7,7 +7,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
-typedef pcl::PointXYZ PointT;
+typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 
 QT_BEGIN_NAMESPACE
@@ -26,6 +26,7 @@ public:
 
 private slots:
     PointCloudT::Ptr openFile();
+    PointCloudT::Ptr transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz);
     void openFileForViewer1();
     void openFileForViewer2();
     void onSlider1ValueChanged(double value);

@@ -27,6 +27,8 @@ public:
 private slots:
     PointCloudT::Ptr openFile();
     PointCloudT::Ptr transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz);
+    void updateViewer(int id, PointCloudT::Ptr cloud);
+    void colorize(PointT &point, float distance, float max_distance, float min_distance);
     void openFileForViewer1();
     void openFileForViewer2();
     void onSlider1ValueChanged(double value);

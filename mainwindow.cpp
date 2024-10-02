@@ -10,6 +10,7 @@
 #include <pcl/console/parse.h>
 #include <pcl/console/time.h>
 #include <pcl/search/kdtree.h>
+#include <pcl/common/distances.h>
 
 
 using namespace pcl;
@@ -63,6 +64,8 @@ double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr
     pcl::search::KdTree<PointT> tree_b;
     tree_b.setInputCloud (cloud_b);
     float max_dist_a = -std::numeric_limits<float>::max ();
+    float min_dist_a = std::numeric_limits<float>::max ();
+    std::vector<float> distances(cloud_a->points.size());
     for (size_t i = 0; i < cloud_a->points.size(); ++i) {
         auto &point = cloud_a->points[i];
         pcl::Indices indices(1); // To store index of the nearest point
@@ -71,47 +74,107 @@ double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr
         // Perform nearest neighbor search
         tree_b.nearestKSearch(point, 1, indices, sqr_distances);
 
-        // Get the squared distance
-        float distance_squared = sqr_distances[0];
+        // Calculate the distance
+        float distance = std::sqrt(sqr_distances[0]);
+        distances[i] = distance;
 
-        // Update maximum distance if necessary
-        if (distance_squared > max_dist_a) {
-            max_dist_a = distance_squared;
-        }
-
-        point.r = 150;
-        std::cout << point;
-/*
-        // Color the point based on distance
-        float distance = std::sqrt(distance_squared); // Euclidean distance
-        uint8_t r = 0, g = 0, b = 0; // Initialize color components
-
-        // Normalize the distance to a range (you can customize this range)
-        float normalized_distance = std::min(distance / 5.0f, 1.0f); // Assume max distance for colorization is 5.0f
-
-        // Color based on distance
-        if (normalized_distance < 0.5f) {
-            // Green to yellow
-            r = static_cast<uint8_t>(normalized_distance * 2 * 255); // From 0 to 255
-            g = 255; // Keep green at max
-        } else {
-            // Yellow to red
-            r = 255; // Keep red at max
-            g = static_cast<uint8_t>((1.0f - normalized_distance) * 255); // From 255 to 0
-        }
-
-        // Assign color to the point
-        cloud_a->points[i].r = r;
-        cloud_a->points[i].g = g;
-        cloud_a->points[i].b = b; // Set blue to 0
-        cloud_a->points[i].a = 255; // Set alpha to fully opaque*/
-
-        //std::cout << cloud_a->points[i].r;
+        if (distance > max_dist_a)
+            max_dist_a = distance;
+        if (distance < min_dist_a)
+            min_dist_a = distance;
     }
-
+    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+        auto &point = cloud_a->points[i];
+        colorize(point, distances[i], max_dist_a, min_dist_a);
+    }
+    updateViewer(1, cloud_a);
     return max_dist_a;
 }
 
+/*
+double MainWindow::pointToPlaneDistance(PointCloudT::Ptr &cloud_a, pcl::PolygonMesh::Ptr &mesh_b) {
+    // Extract the cloud from the PolygonMesh
+    PointCloudT::Ptr cloud_b(new PointCloudT);
+    pcl::fromPCLPointCloud2(mesh_b->cloud, *cloud_b);
+
+    float max_dist_a = -std::numeric_limits<float>::max();
+    float min_dist_a = std::numeric_limits<float>::max();
+    std::vector<float> distances(cloud_a->points.size());
+
+    // Iterate over each point in cloud_a
+    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+        auto &point = cloud_a->points[i];
+        float min_distance = std::numeric_limits<float>::max();
+
+        // Iterate over each triangle in the mesh
+        for (size_t j = 0; j < mesh_b->polygons.size(); ++j) {
+            const pcl::Vertices &vertices = mesh_b->polygons[j];
+
+            // Extract triangle vertices (v0, v1, v2) from cloud_b
+            Eigen::Vector3f v0(cloud_b->points[vertices.vertices[0]].x, cloud_b->points[vertices.vertices[0]].y, cloud_b->points[vertices.vertices[0]].z);
+            Eigen::Vector3f v1(cloud_b->points[vertices.vertices[1]].x, cloud_b->points[vertices.vertices[1]].y, cloud_b->points[vertices.vertices[1]].z);
+            Eigen::Vector3f v2(cloud_b->points[vertices.vertices[2]].x, cloud_b->points[vertices.vertices[2]].y, cloud_b->points[vertices.vertices[2]].z);
+
+            // Compute the distance from the point to the current triangle
+            float distance = pointToTriangleDistance(point, v0, v1, v2);
+
+            // Track the minimum distance for this point
+            if (distance < min_distance) {
+                min_distance = distance;
+            }
+        }
+
+        // Store the minimum distance for this point
+        distances[i] = min_distance;
+
+        // Update the max and min distances
+        if (min_distance > max_dist_a) max_dist_a = min_distance;
+        if (min_distance < min_dist_a) min_dist_a = min_distance;
+    }
+
+    // Colorize the points in cloud_a based on their distances to the nearest plane
+    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+        auto &point = cloud_a->points[i];
+        colorize(point, distances[i], max_dist_a, min_dist_a);
+    }
+
+    // Update the viewer to show the colorized point cloud
+    updateViewer(1, cloud_a);
+
+    return max_dist_a;
+}
+*/
+void MainWindow::colorize(PointT &point, float distance, float max_distance, float min_distance) {
+    // Normalize the distance for coloring (assuming max distance is a threshold)
+    float color_factor;
+    if (max_distance - min_distance == 0)
+        color_factor = 0;
+    else
+        color_factor = (distance - min_distance) / (max_distance - min_distance);
+
+    // Set color based on the normalized distance using the red -> yellow -> green -> cyan -> blue gradient
+    if (color_factor <= 0.25f) {
+        // Transition from Red to Yellow (0.0 to 0.25)
+        point.r = 255;  // Red stays at max
+        point.g = static_cast<uint8_t>(255 * (color_factor / 0.25f)); // Green increases
+        point.b = 0;    // Blue remains 0
+    } else if (color_factor <= 0.5f) {
+        // Transition from Yellow to Green (0.25 to 0.5)
+        point.r = static_cast<uint8_t>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)); // Red decreases
+        point.g = 255;  // Green stays at max
+        point.b = 0;    // Blue remains 0
+    } else if (color_factor <= 0.75f) {
+        // Transition from Green to Cyan (0.5 to 0.75)
+        point.r = 0;    // Red is 0
+        point.g = 255;  // Green stays at max
+        point.b = static_cast<uint8_t>(255 * ((color_factor - 0.5f) / 0.25f)); // Blue increases
+    } else {
+        // Transition from Cyan to Blue (0.75 to 1.0)
+        point.r = 0;    // Red stays at 0
+        point.g = static_cast<uint8_t>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)); // Green decreases
+        point.b = 255;  // Blue stays at max
+    }
+}
 void MainWindow::onCalculateHausdorffDistance() {
     if (!cloud1 || !cloud2) {
         QMessageBox::warning(this, "Warning", "Please load both point clouds first.");
@@ -132,13 +195,25 @@ void MainWindow::refreshView2() {
     ui->qvtkWidget2->renderWindow()->Render();
 }
 
+void MainWindow::updateViewer(int id, PointCloudT::Ptr cloud) {
+    if (id == 1) {
+        viewer1->removeAllPointClouds();
+        viewer1->addPointCloud(cloud, "cloud1");
+        refreshView1();
+    }
+    else if (id == 2) {
+        viewer2->removeAllPointClouds();
+        viewer2->addPointCloud(cloud, "cloud2");
+        refreshView2();
+    }
+}
+
 void MainWindow::openFileForViewer1()
 {
     cloud1 = openFile();
 
     if (cloud1) {
-        viewer1->removeAllPointClouds();
-        viewer1->addPointCloud(cloud1, "cloud1");
+        updateViewer(1, cloud1);
     }
 }
 
@@ -147,8 +222,7 @@ void MainWindow::openFileForViewer2()
     cloud2 = openFile();
 
     if (cloud2) {
-        viewer2->removeAllPointClouds();
-        viewer2->addPointCloud(cloud2, "cloud2");
+        updateViewer(2, cloud2);
     }
 }
 

@@ -34,8 +34,9 @@ private slots:
     void onSlider1ValueChanged(double value);
     void onSlider2ValueChanged(double value);
 
-    void onCalculateHausdorffDistance();
-    double hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    void onCalculate();
+    double hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
+    double chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
 
 private:
     double pointSize1 = 3;

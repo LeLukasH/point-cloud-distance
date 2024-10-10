@@ -17,6 +17,7 @@ using namespace pcl;
 using namespace pcl::io;
 using namespace pcl::console;
 using namespace pcl::search;
+using namespace std;
 
 
 #include <pcl/visualization/cloud_viewer.h>
@@ -36,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->pointSizeSlider1, &QSlider::sliderMoved, this, &MainWindow::refreshView1);
     connect(ui->pointSizeSlider2, &QSlider::sliderMoved, this, &MainWindow::refreshView2);
 
-    connect(ui->calculateButton, &QPushButton::clicked, this, &MainWindow::onCalculateHausdorffDistance);
+    connect(ui->calculateButton, &QPushButton::clicked, this, &MainWindow::onCalculate);
 
     auto renderer1 = vtkSmartPointer<vtkRenderer>::New();
     auto renderWindow1 = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
@@ -59,23 +60,23 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
     // compare A to B
     pcl::search::KdTree<PointT> tree_b;
     tree_b.setInputCloud (cloud_b);
-    float max_dist_a = -std::numeric_limits<float>::max ();
-    float min_dist_a = std::numeric_limits<float>::max ();
-    std::vector<float> distances(cloud_a->points.size());
+    double max_dist_a = -numeric_limits<double>::max ();
+    double min_dist_a = numeric_limits<double>::max ();
+    vector<float> distances(cloud_a->points.size());
     for (size_t i = 0; i < cloud_a->points.size(); ++i) {
         auto &point = cloud_a->points[i];
         pcl::Indices indices(1); // To store index of the nearest point
-        std::vector<float> sqr_distances(1); // To store squared distance of the nearest point
+        vector<float> sqr_distances(1); // To store squared distance of the nearest point
 
         // Perform nearest neighbor search
         tree_b.nearestKSearch(point, 1, indices, sqr_distances);
 
         // Calculate the distance
-        float distance = std::sqrt(sqr_distances[0]);
+        double distance = sqrt(sqr_distances[0]);
         distances[i] = distance;
 
         if (distance > max_dist_a)
@@ -83,67 +84,53 @@ double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr
         if (distance < min_dist_a)
             min_dist_a = distance;
     }
-    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-        auto &point = cloud_a->points[i];
-        colorize(point, distances[i], max_dist_a, min_dist_a);
-    }
-    updateViewer(1, cloud_a);
-    return max_dist_a;
-}
-
-/*
-double MainWindow::pointToPlaneDistance(PointCloudT::Ptr &cloud_a, pcl::PolygonMesh::Ptr &mesh_b) {
-    // Extract the cloud from the PolygonMesh
-    PointCloudT::Ptr cloud_b(new PointCloudT);
-    pcl::fromPCLPointCloud2(mesh_b->cloud, *cloud_b);
-
-    float max_dist_a = -std::numeric_limits<float>::max();
-    float min_dist_a = std::numeric_limits<float>::max();
-    std::vector<float> distances(cloud_a->points.size());
-
-    // Iterate over each point in cloud_a
-    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-        auto &point = cloud_a->points[i];
-        float min_distance = std::numeric_limits<float>::max();
-
-        // Iterate over each triangle in the mesh
-        for (size_t j = 0; j < mesh_b->polygons.size(); ++j) {
-            const pcl::Vertices &vertices = mesh_b->polygons[j];
-
-            // Extract triangle vertices (v0, v1, v2) from cloud_b
-            Eigen::Vector3f v0(cloud_b->points[vertices.vertices[0]].x, cloud_b->points[vertices.vertices[0]].y, cloud_b->points[vertices.vertices[0]].z);
-            Eigen::Vector3f v1(cloud_b->points[vertices.vertices[1]].x, cloud_b->points[vertices.vertices[1]].y, cloud_b->points[vertices.vertices[1]].z);
-            Eigen::Vector3f v2(cloud_b->points[vertices.vertices[2]].x, cloud_b->points[vertices.vertices[2]].y, cloud_b->points[vertices.vertices[2]].z);
-
-            // Compute the distance from the point to the current triangle
-            float distance = pointToTriangleDistance(point, v0, v1, v2);
-
-            // Track the minimum distance for this point
-            if (distance < min_distance) {
-                min_distance = distance;
-            }
+    if (colorized) {
+        for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+            auto &point = cloud_a->points[i];
+            colorize(point, distances[i], max_dist_a, min_dist_a);
         }
-
-        // Store the minimum distance for this point
-        distances[i] = min_distance;
-
-        // Update the max and min distances
-        if (min_distance > max_dist_a) max_dist_a = min_distance;
-        if (min_distance < min_dist_a) min_dist_a = min_distance;
     }
-
-    // Colorize the points in cloud_a based on their distances to the nearest plane
-    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-        auto &point = cloud_a->points[i];
-        colorize(point, distances[i], max_dist_a, min_dist_a);
-    }
-
-    // Update the viewer to show the colorized point cloud
     updateViewer(1, cloud_a);
-
     return max_dist_a;
 }
-*/
+
+double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+    // compare A to B
+    pcl::search::KdTree<PointT> tree_b;
+    tree_b.setInputCloud (cloud_b);
+    double max_dist_a = -numeric_limits<double>::max ();
+    double min_dist_a = numeric_limits<double>::max ();
+    double sum = 0;
+    vector<double> distances(cloud_a->points.size());
+
+    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+        auto &point = cloud_a->points[i];
+        pcl::Indices indices(1); // To store index of the nearest point
+        vector<float> sqr_distances(1); // To store squared distance of the nearest point
+
+        // Perform nearest neighbor search
+        tree_b.nearestKSearch(point, 1, indices, sqr_distances);
+
+        // Calculate the distance
+        double distance = sqr_distances[0];
+        distances[i] = distance;
+        sum += distance;
+
+        if (distance > max_dist_a)
+            max_dist_a = distance;
+        if (distance < min_dist_a)
+            min_dist_a = distance;
+    }
+    if (colorized) {
+        for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+            auto &point = cloud_a->points[i];
+            colorize(point, distances[i], max_dist_a, min_dist_a);
+        }
+    }
+    updateViewer(1, cloud_a);
+    return sum / cloud_a->points.size();
+}
+
 void MainWindow::colorize(PointT &point, float distance, float max_distance, float min_distance) {
     // Normalize the distance for coloring (assuming max distance is a threshold)
     float color_factor;
@@ -175,14 +162,28 @@ void MainWindow::colorize(PointT &point, float distance, float max_distance, flo
         point.b = 255;  // Blue stays at max
     }
 }
-void MainWindow::onCalculateHausdorffDistance() {
+void MainWindow::onCalculate() {
+    // Check if the cloud data is loaded and valid
     if (!cloud1 || !cloud2) {
-        QMessageBox::warning(this, "Warning", "Please load both point clouds first.");
+        QMessageBox::warning(this, "Error", "Please load both point clouds first.");
         return;
     }
 
-    double distance = hausdorffDistance(cloud1, cloud2);
-    QMessageBox::information(this, "Hausdorff Distance", "The Hausdorff distance is: " + QString::number(distance));
+    bool colorized = true; // Assuming colorization is always on; you can add a checkbox if needed
+
+    double distance;
+    if (ui->hausdorffRadioButton->isChecked()) {
+        distance = hausdorffDistance(cloud1, cloud2, colorized);
+        QMessageBox::information(this, "Hausdorff Distance", QString::number(distance));
+    } else if (ui->chamferRadioButton->isChecked()) {
+        distance = chamferDistance(cloud1, cloud2, colorized);
+        QMessageBox::information(this, "Chamfer Distance", QString::number(distance));
+    } else {
+        QMessageBox::warning(this, "Error", "Please select a distance metric.");
+    }
+
+    updateViewer(1, cloud1);
+    updateViewer(2, cloud2);
 }
 
 void MainWindow::refreshView1() {
@@ -238,23 +239,14 @@ PointCloudT::Ptr MainWindow::openFile()
     QString fileExtension = fileInfo.suffix().toLower();
 
     if (fileExtension == "pcd") {
-        // Try to load as PointT (PointXYZRGBA)
-        PointCloudT::Ptr cloud_rgba(new PointCloudT);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
 
-        if (pcl::io::loadPCDFile<PointT>(fileName.toStdString(), *cloud_rgba) == -1) {
-            // If failed, try loading as PointXYZ
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
-            if (pcl::io::loadPCDFile<pcl::PointXYZ>(fileName.toStdString(), *cloud_xyz) == -1) {
+        if (pcl::io::loadPCDFile<PointXYZ>(fileName.toStdString(), *cloud_xyz) == -1) {
                 QMessageBox::critical(this, "Error", "Failed to load the PCD file.");
                 return nullptr; // Return null if loading fails
-            }
-
-            // Transform PointXYZ to PointT (PointXYZRGBA)
-            return transformToRGBA(cloud_xyz);
         }
-
-        // Return the loaded PointT (PointXYZRGBA) cloud
-        return cloud_rgba;
+        // Transform PointXYZ to PointT (PointXYZRGBA)
+        return transformToRGBA(cloud_xyz);
 
     } else if (fileExtension == "obj") {
         // Load the OBJ file as a polygon mesh
@@ -274,15 +266,15 @@ PointCloudT::Ptr MainWindow::openFile()
     } else if (fileExtension == "xyz") {
         // Load the XYZ file
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
-        std::ifstream infile(fileName.toStdString());
+        ifstream infile(fileName.toStdString());
         if (!infile) {
             QMessageBox::critical(this, "Error", "Failed to open the XYZ file.");
             return nullptr;
         }
 
-        std::string line;
-        while (std::getline(infile, line)) {
-            std::istringstream iss(line);
+        string line;
+        while (getline(infile, line)) {
+            istringstream iss(line);
             pcl::PointXYZ point;
             if (!(iss >> point.x >> point.y >> point.z)) {
                 continue; // Skip invalid lines

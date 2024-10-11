@@ -63,7 +63,7 @@ MainWindow::MainWindow(QWidget *parent)
     chartView1 = new QChartView();
     chartView1->setRenderHint(QPainter::Antialiasing);
     chartView1->setStyleSheet("background: transparent");
-    chartView1->setMinimumHeight(400);
+    chartView1->setMinimumHeight(300);
     ui->verticalLayout1->addWidget(chartView1);
 }
 
@@ -102,7 +102,7 @@ double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr
             colorize(point, distances[i], max_dist_a, min_dist_a);
         }
     }
-    showDistanceHistogram(distances, chartView1);
+    showHistogram(distances, chartView1);
     updateViewer(1, cloud_a);
     return max_dist_a;
 }
@@ -178,7 +178,7 @@ double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::P
 }
 
 // Function to create histogram data
-QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBins) {
+QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBins, bool colorized = true) {
     float maxDist = *std::max_element(distances.begin(), distances.end());
     float minDist = *std::min_element(distances.begin(), distances.end());
     float binWidth = (maxDist - minDist) / numBins;
@@ -192,46 +192,44 @@ QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBi
     QBarSeries* series = new QBarSeries();
 
     // Create a bar set and add the bins
-    for (int binCount : bins) {
-        QBarSet* barSet = new QBarSet("Distances");
-        *barSet << binCount;
+    for (int i = 0; i < numBins; i++) {
+        QBarSet* barSet = new QBarSet("");
+        *barSet << bins[i];
+        QColor color;
+        if (colorized) {
+            float color_factor = (static_cast<float>(i) / numBins);
+            if (color_factor <= 0.25f) {
+                // Red to Yellow
+                color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
+            } else if (color_factor <= 0.5f) {
+                // Yellow to Green
+                color.setRgb(static_cast<int>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)), 255, 0);
+            } else if (color_factor <= 0.75f) {
+                // Green to Cyan
+                color.setRgb(0, 255, static_cast<int>(255 * ((color_factor - 0.5f) / 0.25f)));
+            } else {
+                // Cyan to Blue
+                color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
+            }
+        }
+        else {
+            color.setRgb(255,255,255);
+        }
+        barSet->setColor(color);
+        barSet->setBrush(QBrush(color));
+        barSet->setBorderColor(Qt::transparent);
         series->append(barSet);
     }
 
     return series;
 }
 
-void MainWindow::showDistanceHistogram(const std::vector<float>& distances, QChartView* chartView) {
+void MainWindow::showHistogram(const std::vector<float>& distances, QChartView* chartView) {
     int numBins = 100; // Set the number of bins to 50 for more granularity
-    QBarSeries* series = createHistogramSeries(distances, numBins);
+    QBarSeries* series = createHistogramSeries(distances, numBins, false);
 
     float minDist = *std::min_element(distances.begin(), distances.end());
     float maxDist = *std::max_element(distances.begin(), distances.end());
-
-    // Colorize
-    for (int i = 0; i < numBins; ++i) {
-        QBarSet* barSet = series->barSets().at(i);
-        float color_factor = (static_cast<float>(i) / numBins);
-        QColor color;
-
-        if (color_factor <= 0.25f) {
-            // Red to Yellow
-            color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
-        } else if (color_factor <= 0.5f) {
-            // Yellow to Green
-            color.setRgb(static_cast<int>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)), 255, 0);
-        } else if (color_factor <= 0.75f) {
-            // Green to Cyan
-            color.setRgb(0, 255, static_cast<int>(255 * ((color_factor - 0.5f) / 0.25f)));
-        } else {
-            // Cyan to Blue
-            color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
-        }
-
-        barSet->setColor(color);
-        barSet->setBrush(QBrush(color));
-        barSet->setBorderColor(Qt::transparent);
-    }
 
     // Set bar width to fill space (no gap between bars)
     series->setBarWidth(1.0);
@@ -253,11 +251,11 @@ void MainWindow::showDistanceHistogram(const std::vector<float>& distances, QCha
     chart->addAxis(axisX, Qt::AlignBottom);
 
     // Configure y-axis without labels or grid lines
-    QValueAxis* axisY = new QValueAxis();
+    /*QValueAxis* axisY = new QValueAxis();
     axisY->setGridLineVisible(false);
     axisY->setLabelsVisible(false);
     chart->addAxis(axisY, Qt::AlignLeft);
-    series->attachAxis(axisY);
+    series->attachAxis(axisY);*/
 
     chartView->setChart(chart);
 }

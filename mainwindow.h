@@ -40,7 +40,7 @@ private slots:
     double hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
     double chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
     double earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
-    void showDistanceHistogram(const std::vector<float>& distances, QChartView* chartView);
+    void showHistogram(const std::vector<float>& distances, QChartView* chartView);
 
 private:
     double pointSize1 = 3;

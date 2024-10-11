@@ -12,6 +12,13 @@
 #include <pcl/search/kdtree.h>
 #include <pcl/common/distances.h>
 
+#include <QtCharts/QChart>
+#include <QtCharts/QChartView>
+#include <QtCharts/QBarSeries>
+#include <QtCharts/QBarSet>
+#include <QtCharts/QValueAxis>
+#include <QtCharts/QBarCategoryAxis>
+
 
 using namespace pcl;
 using namespace pcl::io;
@@ -53,6 +60,11 @@ MainWindow::MainWindow(QWidget *parent)
     ui->qvtkWidget2->setRenderWindow(viewer2->getRenderWindow());
     viewer2->setupInteractor(ui->qvtkWidget2->interactor(), ui->qvtkWidget2->renderWindow());
 
+    chartView1 = new QChartView();
+    chartView1->setRenderHint(QPainter::Antialiasing);
+    chartView1->setStyleSheet("background: transparent");
+    chartView1->setMinimumHeight(400);
+    ui->verticalLayout1->addWidget(chartView1);
 }
 
 MainWindow::~MainWindow()
@@ -90,6 +102,7 @@ double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr
             colorize(point, distances[i], max_dist_a, min_dist_a);
         }
     }
+    showDistanceHistogram(distances, chartView1);
     updateViewer(1, cloud_a);
     return max_dist_a;
 }
@@ -116,10 +129,8 @@ double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &
         distances[i] = distance;
         sum += distance;
 
-        if (distance > max_dist_a)
-            max_dist_a = distance;
-        if (distance < min_dist_a)
-            min_dist_a = distance;
+        if (distance > max_dist_a) max_dist_a = distance;
+        if (distance < min_dist_a) min_dist_a = distance;
     }
     if (colorized) {
         for (size_t i = 0; i < cloud_a->points.size(); ++i) {
@@ -129,6 +140,126 @@ double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &
     }
     updateViewer(1, cloud_a);
     return sum / cloud_a->points.size();
+}
+
+double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+    // compare A to B
+    pcl::search::KdTree<PointT> tree_b;
+    tree_b.setInputCloud (cloud_b);
+    double max_dist_a = -numeric_limits<double>::max ();
+    double min_dist_a = numeric_limits<double>::max ();
+    double sum = 0;
+    vector<double> distances(cloud_a->points.size());
+
+    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+        auto &point = cloud_a->points[i];
+        pcl::Indices indices(1); // To store index of the nearest point
+        vector<float> sqr_distances(1); // To store squared distance of the nearest point
+
+        // Perform nearest neighbor search
+        tree_b.nearestKSearch(point, 1, indices, sqr_distances);
+
+        // Calculate the distance
+        double distance = sqr_distances[0];
+        distances[i] = distance;
+        sum += distance;
+
+        if (distance > max_dist_a) max_dist_a = distance;
+        if (distance < min_dist_a) min_dist_a = distance;
+    }
+    if (colorized) {
+        for (size_t i = 0; i < cloud_a->points.size(); ++i) {
+            auto &point = cloud_a->points[i];
+            colorize(point, distances[i], max_dist_a, min_dist_a);
+        }
+    }
+    updateViewer(1, cloud_a);
+    return sum / cloud_a->points.size();
+}
+
+// Function to create histogram data
+QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBins) {
+    float maxDist = *std::max_element(distances.begin(), distances.end());
+    float minDist = *std::min_element(distances.begin(), distances.end());
+    float binWidth = (maxDist - minDist) / numBins;
+
+    std::vector<int> bins(numBins, 0);
+    for (float dist : distances) {
+        int binIndex = std::min(static_cast<int>((dist - minDist) / binWidth), numBins - 1);
+        bins[binIndex]++;
+    }
+
+    QBarSeries* series = new QBarSeries();
+
+    // Create a bar set and add the bins
+    for (int binCount : bins) {
+        QBarSet* barSet = new QBarSet("Distances");
+        *barSet << binCount;
+        series->append(barSet);
+    }
+
+    return series;
+}
+
+void MainWindow::showDistanceHistogram(const std::vector<float>& distances, QChartView* chartView) {
+    int numBins = 100; // Set the number of bins to 50 for more granularity
+    QBarSeries* series = createHistogramSeries(distances, numBins);
+
+    float minDist = *std::min_element(distances.begin(), distances.end());
+    float maxDist = *std::max_element(distances.begin(), distances.end());
+
+    // Colorize
+    for (int i = 0; i < numBins; ++i) {
+        QBarSet* barSet = series->barSets().at(i);
+        float color_factor = (static_cast<float>(i) / numBins);
+        QColor color;
+
+        if (color_factor <= 0.25f) {
+            // Red to Yellow
+            color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
+        } else if (color_factor <= 0.5f) {
+            // Yellow to Green
+            color.setRgb(static_cast<int>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)), 255, 0);
+        } else if (color_factor <= 0.75f) {
+            // Green to Cyan
+            color.setRgb(0, 255, static_cast<int>(255 * ((color_factor - 0.5f) / 0.25f)));
+        } else {
+            // Cyan to Blue
+            color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
+        }
+
+        barSet->setColor(color);
+        barSet->setBrush(QBrush(color));
+        barSet->setBorderColor(Qt::transparent);
+    }
+
+    // Set bar width to fill space (no gap between bars)
+    series->setBarWidth(1.0);
+
+    // Create and customize the chart
+    QChart* chart = new QChart();
+    chart->removeAllSeries();
+    chart->addSeries(series);
+    chart->setBackgroundBrush(Qt::NoBrush); // Transparent background
+    chart->setPlotAreaBackgroundVisible(false); // No background in the plot area
+    chart->legend()->hide(); // Hide the legend
+    chart->setTitle("Histogram"); // No title
+
+    // Configure the x-axis to have 10 evenly spaced labels
+    QValueAxis* axisX = new QValueAxis();
+    axisX->setRange(minDist, maxDist);
+    axisX->setTickCount(10);
+    axisX->setGridLineVisible(false);
+    chart->addAxis(axisX, Qt::AlignBottom);
+
+    // Configure y-axis without labels or grid lines
+    QValueAxis* axisY = new QValueAxis();
+    axisY->setGridLineVisible(false);
+    axisY->setLabelsVisible(false);
+    chart->addAxis(axisY, Qt::AlignLeft);
+    series->attachAxis(axisY);
+
+    chartView->setChart(chart);
 }
 
 void MainWindow::colorize(PointT &point, float distance, float max_distance, float min_distance) {
@@ -178,6 +309,9 @@ void MainWindow::onCalculate() {
     } else if (ui->chamferRadioButton->isChecked()) {
         distance = chamferDistance(cloud1, cloud2, colorized);
         QMessageBox::information(this, "Chamfer Distance", QString::number(distance));
+    } else if (ui->earthMoversRadioButton->isChecked()) {
+        distance = earthMoversDistance(cloud1, cloud2, colorized);
+        QMessageBox::information(this, "Earth Mover's Distance", QString::number(distance));
     } else {
         QMessageBox::warning(this, "Error", "Please select a distance metric.");
     }
@@ -185,6 +319,8 @@ void MainWindow::onCalculate() {
     updateViewer(1, cloud1);
     updateViewer(2, cloud2);
 }
+
+
 
 void MainWindow::refreshView1() {
     viewer1->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize1, "cloud1");

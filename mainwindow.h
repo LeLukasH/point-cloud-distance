@@ -7,6 +7,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
+#include <QtCharts/QChartView>
+
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 
@@ -37,6 +39,8 @@ private slots:
     void onCalculate();
     double hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
     double chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
+    double earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
+    void showDistanceHistogram(const std::vector<float>& distances, QChartView* chartView);
 
 private:
     double pointSize1 = 3;
@@ -51,6 +55,9 @@ protected:
 
     void refreshView1();
     void refreshView2();
+
+    QChartView* chartView1;
+    QChartView* chartView2;
 
 private:
     Ui::MainWindow *ui;

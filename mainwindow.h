@@ -30,7 +30,7 @@ private slots:
     PointCloudT::Ptr openFile();
     PointCloudT::Ptr transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz);
     void updateViewer(int id, PointCloudT::Ptr cloud);
-    void colorize(PointT &point, float distance, float max_distance, float min_distance);
+    void colorizeCloud(PointCloudT::Ptr &cloud, std::vector<float> distances);
     void openFileForViewer1();
     void openFileForViewer2();
     void onSlider1ValueChanged(double value);
@@ -40,10 +40,11 @@ private slots:
     double hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
     double chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
     double earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
-    void showHistogram(const std::vector<float>& distances, QChartView* chartView);
+    double jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized = false);
+    void showHistogram(const std::vector<float>& distances);
 
 private:
-    double pointSize1 = 3;
+    double pointSize1 = 1;
     double pointSize2 = 3;
 
 protected:
@@ -56,8 +57,7 @@ protected:
     void refreshView1();
     void refreshView2();
 
-    QChartView* chartView1;
-    QChartView* chartView2;
+    QChartView* chartView;
 
 private:
     Ui::MainWindow *ui;

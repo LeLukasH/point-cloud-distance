@@ -41,8 +41,20 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->openButton2, &QPushButton::clicked, this, &MainWindow::openFileForViewer2);
     connect(ui->pointSizeSlider1, &QSlider::valueChanged, this, &MainWindow::onSlider1ValueChanged);
     connect(ui->pointSizeSlider2, &QSlider::valueChanged, this, &MainWindow::onSlider2ValueChanged);
-    connect(ui->pointSizeSlider1, &QSlider::sliderMoved, this, &MainWindow::refreshView1);
-    connect(ui->pointSizeSlider2, &QSlider::sliderMoved, this, &MainWindow::refreshView2);
+    connect(ui->pointSizeSlider1, &QSlider::valueChanged, this, &MainWindow::refreshView1);
+    connect(ui->pointSizeSlider2, &QSlider::valueChanged, this, &MainWindow::refreshView2);
+    connect(ui->resetButton1, &QPushButton::clicked, [this]() {viewer1->resetCamera();});
+    connect(ui->resetButton2, &QPushButton::clicked, [this]() {viewer2->resetCamera();});
+    connect(ui->deleteButton1, &QPushButton::clicked, [this]() {viewer1->removeAllPointClouds(); refreshView1();});
+    connect(ui->deleteButton2, &QPushButton::clicked, [this]() {viewer2->removeAllPointClouds(); refreshView2();});
+    //connect(ui->colorizeButton, &QCheckBox::toggled, [this]() {colorizeCloud(cloud1, ui->)});
+
+    // Connect slider to spin box
+    connect(ui->pointSizeSlider1, &QSlider::valueChanged, [=](int value) {ui->pointSizeBox1->setValue(value / 10.0);});
+    connect(ui->pointSizeSlider2, &QSlider::valueChanged, [=](int value) {ui->pointSizeBox2->setValue(value / 10.0);});
+    // Connect spin box to slider
+    connect(ui->pointSizeBox1, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {ui->pointSizeSlider1->setValue(value * 10.0);});
+    connect(ui->pointSizeBox2, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {ui->pointSizeSlider2->setValue(value * 10.0);});
 
     connect(ui->calculateButton, &QPushButton::clicked, this, &MainWindow::onCalculate);
 
@@ -60,11 +72,28 @@ MainWindow::MainWindow(QWidget *parent)
     ui->qvtkWidget2->setRenderWindow(viewer2->getRenderWindow());
     viewer2->setupInteractor(ui->qvtkWidget2->interactor(), ui->qvtkWidget2->renderWindow());
 
-    chartView1 = new QChartView();
-    chartView1->setRenderHint(QPainter::Antialiasing);
-    chartView1->setStyleSheet("background: transparent");
-    chartView1->setMinimumHeight(300);
-    ui->verticalLayout1->addWidget(chartView1);
+    // ChartView
+    chartView = new QChartView();
+    chartView->setRenderHint(QPainter::Antialiasing);
+    chartView->setStyleSheet("background: transparent");
+    chartView->setMinimumHeight(300);
+    ui->histogramPlace->addWidget(chartView);
+    QChart* chart = new QChart();
+    chart->setBackgroundBrush(Qt::NoBrush); // Transparent background
+    chart->setPlotAreaBackgroundVisible(false); // No background in the plot area
+    chart->legend()->hide(); // Hide the legend
+    chart->setTitle("Histogram"); // No title
+    QValueAxis* axisX = new QValueAxis();
+    axisX->setRange(0, 10);
+    axisX->setTickCount(10);
+    axisX->setGridLineVisible(false);
+    chart->addAxis(axisX, Qt::AlignBottom);
+    chartView->setChart(chart);
+    chartView->setMaximumHeight(150);
+
+    // Populate the ColorFormatBox
+    ui->colorFormatBox->addItem("White");
+    ui->colorFormatBox->addItem("RGB");
 }
 
 MainWindow::~MainWindow()
@@ -72,12 +101,9 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
-    // compare A to B
+vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     pcl::search::KdTree<PointT> tree_b;
     tree_b.setInputCloud (cloud_b);
-    double max_dist_a = -numeric_limits<double>::max ();
-    double min_dist_a = numeric_limits<double>::max ();
     vector<float> distances(cloud_a->points.size());
     for (size_t i = 0; i < cloud_a->points.size(); ++i) {
         auto &point = cloud_a->points[i];
@@ -88,93 +114,155 @@ double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr
         tree_b.nearestKSearch(point, 1, indices, sqr_distances);
 
         // Calculate the distance
-        double distance = sqrt(sqr_distances[0]);
-        distances[i] = distance;
-
-        if (distance > max_dist_a)
-            max_dist_a = distance;
-        if (distance < min_dist_a)
-            min_dist_a = distance;
+        distances[i] = sqrt(sqr_distances[0]);
     }
-    if (colorized) {
-        for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-            auto &point = cloud_a->points[i];
-            colorize(point, distances[i], max_dist_a, min_dist_a);
+    return distances;
+}
+
+QColor calculateColor(float color_factor, string format = "white") {
+    QColor color;
+    if (format == "rgb") {
+        if (color_factor <= 0.25f) {
+            // Red to Yellow
+            color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
+        } else if (color_factor <= 0.5f) {
+            // Yellow to Green
+            color.setRgb(static_cast<int>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)), 255, 0);
+        } else if (color_factor <= 0.75f) {
+            // Green to Cyan
+            color.setRgb(0, 255, static_cast<int>(255 * ((color_factor - 0.5f) / 0.25f)));
+        } else {
+            // Cyan to Blue
+            color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
         }
     }
-    showHistogram(distances, chartView1);
+    else if (format == "white") {
+        color.setRgb(255,255,255);
+    }
+
+    return color;
+}
+
+void colorizePoint(PointT &point, float distance, float max_distance, float min_distance) {
+    // Normalize the distance for coloring (assuming max distance is a threshold)
+    float color_factor;
+    if (max_distance - min_distance == 0)
+        color_factor = 0;
+    else
+        color_factor = (distance - min_distance) / (max_distance - min_distance);
+
+    QColor color = calculateColor(color_factor, "rgb");
+    point.r = color.red();
+    point.g = color.green();
+    point.b = color.blue();
+}
+
+void MainWindow::colorizeCloud(PointCloudT::Ptr &cloud, vector<float> distances){
+    double max_dist = *max_element(distances.begin(), distances.end());
+    double min_dist = *min_element(distances.begin(), distances.end());
+    for (size_t i = 0; i < cloud->points.size(); ++i) {
+        auto &point = cloud->points[i];
+        colorizePoint(point, distances[i], max_dist, min_dist);
+    }
+}
+
+double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+    // compare A to B
+    vector<float> distances = getDistances(cloud_a, cloud_b);
+
+    double max_dist = *max_element(distances.begin(), distances.end());
+
+    if (colorized) colorizeCloud(cloud_a, distances);
+    showHistogram(distances);
     updateViewer(1, cloud_a);
-    return max_dist_a;
+
+    return max_dist;
 }
 
 double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
     // compare A to B
-    pcl::search::KdTree<PointT> tree_b;
-    tree_b.setInputCloud (cloud_b);
-    double max_dist_a = -numeric_limits<double>::max ();
-    double min_dist_a = numeric_limits<double>::max ();
+    vector<float> distances = getDistances(cloud_a, cloud_b);
+
     double sum = 0;
-    vector<double> distances(cloud_a->points.size());
-
-    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-        auto &point = cloud_a->points[i];
-        pcl::Indices indices(1); // To store index of the nearest point
-        vector<float> sqr_distances(1); // To store squared distance of the nearest point
-
-        // Perform nearest neighbor search
-        tree_b.nearestKSearch(point, 1, indices, sqr_distances);
-
-        // Calculate the distance
-        double distance = sqr_distances[0];
-        distances[i] = distance;
-        sum += distance;
-
-        if (distance > max_dist_a) max_dist_a = distance;
-        if (distance < min_dist_a) min_dist_a = distance;
+    for (size_t i = 0; i < distances.size(); i++) {
+        sum += distances[i] * distances[i];
     }
-    if (colorized) {
-        for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-            auto &point = cloud_a->points[i];
-            colorize(point, distances[i], max_dist_a, min_dist_a);
-        }
-    }
+
+    if (colorized) colorizeCloud(cloud_a, distances);
+    showHistogram(distances);
     updateViewer(1, cloud_a);
+
     return sum / cloud_a->points.size();
 }
 
 double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
     // compare A to B
-    pcl::search::KdTree<PointT> tree_b;
-    tree_b.setInputCloud (cloud_b);
-    double max_dist_a = -numeric_limits<double>::max ();
-    double min_dist_a = numeric_limits<double>::max ();
-    double sum = 0;
-    vector<double> distances(cloud_a->points.size());
+    return 0;
+}
 
-    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-        auto &point = cloud_a->points[i];
-        pcl::Indices indices(1); // To store index of the nearest point
-        vector<float> sqr_distances(1); // To store squared distance of the nearest point
+// Function to calculate Kullback-Leibler divergence
+double klDivergence(const vector<double> &P, const vector<double> &Q) {
+    double kl_divergence = 0.0;
 
-        // Perform nearest neighbor search
-        tree_b.nearestKSearch(point, 1, indices, sqr_distances);
-
-        // Calculate the distance
-        double distance = sqr_distances[0];
-        distances[i] = distance;
-        sum += distance;
-
-        if (distance > max_dist_a) max_dist_a = distance;
-        if (distance < min_dist_a) min_dist_a = distance;
-    }
-    if (colorized) {
-        for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-            auto &point = cloud_a->points[i];
-            colorize(point, distances[i], max_dist_a, min_dist_a);
+    for (size_t i = 0; i < P.size(); ++i) {
+        if (P[i] != 0 && Q[i] != 0) {
+            kl_divergence += P[i] * std::log(P[i] / Q[i]);
         }
     }
+
+    return kl_divergence;
+}
+
+double jensenShannonDivergenceFromDistributions(const vector<double> &P, const vector<double> &Q) {
+    vector<double> M(P.size());
+    double js_divergence = 0.0;
+
+    // Calculate M = 1/2 * (P + Q)
+    for (size_t i = 0; i < P.size(); ++i) {
+        M[i] = 0.5 * (P[i] + Q[i]);
+    }
+
+    // Calculate JSD using KL divergence
+    js_divergence = 0.5 * klDivergence(P, M) + 0.5 * klDivergence(Q, M);
+
+    return js_divergence;
+}
+
+vector<double> normalizeDistribution(const vector<float> &distances) {
+    vector<double> distribution(distances.size());
+    double sum = 0.0;
+
+    // Calculate sum of distances
+    for (double dist : distances) {
+        sum += dist;
+    }
+
+    // Normalize each distance to form a probability distribution
+    for (size_t i = 0; i < distances.size(); ++i) {
+        distribution[i] = static_cast<double>(distances[i]) / sum;
+    }
+
+    return distribution;
+}
+
+// Function to calculate Jensen-Shannon divergence
+double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+    // Compare cloud A to B
+    vector<float> distances_a = getDistances(cloud_a, cloud_b);
+    vector<float> distances_b = getDistances(cloud_b, cloud_a);
+
+    // Normalize both distance arrays to create probability distributions
+    vector<double> P = normalizeDistribution(distances_a);
+    vector<double> Q = normalizeDistribution(distances_b);
+
+    // Calculate the Jensen-Shannon Divergence
+    double jsd = jensenShannonDivergenceFromDistributions(P, Q);
+
+    if (colorized) colorizeCloud(cloud_a, distances_a);
+    showHistogram(distances_a);
     updateViewer(1, cloud_a);
-    return sum / cloud_a->points.size();
+
+    return jsd;
 }
 
 // Function to create histogram data
@@ -195,26 +283,9 @@ QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBi
     for (int i = 0; i < numBins; i++) {
         QBarSet* barSet = new QBarSet("");
         *barSet << bins[i];
-        QColor color;
-        if (colorized) {
-            float color_factor = (static_cast<float>(i) / numBins);
-            if (color_factor <= 0.25f) {
-                // Red to Yellow
-                color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
-            } else if (color_factor <= 0.5f) {
-                // Yellow to Green
-                color.setRgb(static_cast<int>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)), 255, 0);
-            } else if (color_factor <= 0.75f) {
-                // Green to Cyan
-                color.setRgb(0, 255, static_cast<int>(255 * ((color_factor - 0.5f) / 0.25f)));
-            } else {
-                // Cyan to Blue
-                color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
-            }
-        }
-        else {
-            color.setRgb(255,255,255);
-        }
+        float color_factor = (static_cast<float>(i) / numBins);
+        QColor color = calculateColor(color_factor, "rgb");
+
         barSet->setColor(color);
         barSet->setBrush(QBrush(color));
         barSet->setBorderColor(Qt::transparent);
@@ -224,9 +295,9 @@ QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBi
     return series;
 }
 
-void MainWindow::showHistogram(const std::vector<float>& distances, QChartView* chartView) {
+void MainWindow::showHistogram(const std::vector<float>& distances) {
     int numBins = 100; // Set the number of bins to 50 for more granularity
-    QBarSeries* series = createHistogramSeries(distances, numBins, false);
+    QBarSeries* series = createHistogramSeries(distances, numBins);
 
     float minDist = *std::min_element(distances.begin(), distances.end());
     float maxDist = *std::max_element(distances.begin(), distances.end());
@@ -235,13 +306,9 @@ void MainWindow::showHistogram(const std::vector<float>& distances, QChartView* 
     series->setBarWidth(1.0);
 
     // Create and customize the chart
-    QChart* chart = new QChart();
+    QChart *chart = chartView->chart();
     chart->removeAllSeries();
     chart->addSeries(series);
-    chart->setBackgroundBrush(Qt::NoBrush); // Transparent background
-    chart->setPlotAreaBackgroundVisible(false); // No background in the plot area
-    chart->legend()->hide(); // Hide the legend
-    chart->setTitle("Histogram"); // No title
 
     // Configure the x-axis to have 10 evenly spaced labels
     QValueAxis* axisX = new QValueAxis();
@@ -256,41 +323,8 @@ void MainWindow::showHistogram(const std::vector<float>& distances, QChartView* 
     axisY->setLabelsVisible(false);
     chart->addAxis(axisY, Qt::AlignLeft);
     series->attachAxis(axisY);*/
-
-    chartView->setChart(chart);
 }
 
-void MainWindow::colorize(PointT &point, float distance, float max_distance, float min_distance) {
-    // Normalize the distance for coloring (assuming max distance is a threshold)
-    float color_factor;
-    if (max_distance - min_distance == 0)
-        color_factor = 0;
-    else
-        color_factor = (distance - min_distance) / (max_distance - min_distance);
-
-    // Set color based on the normalized distance using the red -> yellow -> green -> cyan -> blue gradient
-    if (color_factor <= 0.25f) {
-        // Transition from Red to Yellow (0.0 to 0.25)
-        point.r = 255;  // Red stays at max
-        point.g = static_cast<uint8_t>(255 * (color_factor / 0.25f)); // Green increases
-        point.b = 0;    // Blue remains 0
-    } else if (color_factor <= 0.5f) {
-        // Transition from Yellow to Green (0.25 to 0.5)
-        point.r = static_cast<uint8_t>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)); // Red decreases
-        point.g = 255;  // Green stays at max
-        point.b = 0;    // Blue remains 0
-    } else if (color_factor <= 0.75f) {
-        // Transition from Green to Cyan (0.5 to 0.75)
-        point.r = 0;    // Red is 0
-        point.g = 255;  // Green stays at max
-        point.b = static_cast<uint8_t>(255 * ((color_factor - 0.5f) / 0.25f)); // Blue increases
-    } else {
-        // Transition from Cyan to Blue (0.75 to 1.0)
-        point.r = 0;    // Red stays at 0
-        point.g = static_cast<uint8_t>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)); // Green decreases
-        point.b = 255;  // Blue stays at max
-    }
-}
 void MainWindow::onCalculate() {
     // Check if the cloud data is loaded and valid
     if (!cloud1 || !cloud2) {
@@ -310,6 +344,9 @@ void MainWindow::onCalculate() {
     } else if (ui->earthMoversRadioButton->isChecked()) {
         distance = earthMoversDistance(cloud1, cloud2, colorized);
         QMessageBox::information(this, "Earth Mover's Distance", QString::number(distance));
+    } else if (ui->jensenShannonRadioButton->isChecked()) {
+        distance = jensenShannonDivergence(cloud1, cloud2, colorized);
+        QMessageBox::information(this, "Jenses-Shannon Divergence", QString::number(distance));
     } else {
         QMessageBox::warning(this, "Error", "Please select a distance metric.");
     }
@@ -454,11 +491,11 @@ PointCloudT::Ptr MainWindow::transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr
 
 void MainWindow::onSlider1ValueChanged(double value)
 {
-    pointSize1 = value;
+    pointSize1 = value / 10.0;
 
 }
 
 void MainWindow::onSlider2ValueChanged(double value)
 {
-    pointSize2 = value;
+    pointSize2 = value / 10.0;
 }

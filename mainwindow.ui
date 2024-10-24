@@ -133,17 +133,11 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_4">
           <item>
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
+           <widget class="QPushButton" name="saveViewButton1">
+            <property name="text">
+             <string>Save</string>
             </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
+           </widget>
           </item>
           <item>
            <widget class="QPushButton" name="resetButton1">
@@ -319,7 +313,7 @@
      </layout>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,4,0,0,0">
+     <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,4,0,0,0,0,0">
       <item>
        <layout class="QVBoxLayout" name="histogramPlace"/>
       </item>
@@ -330,19 +324,6 @@
         </property>
         <item>
          <widget class="QComboBox" name="colorFormatBox"/>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="colorizeButton">
-          <property name="styleSheet">
-           <string notr="true">font: 900 12pt &quot;Segoe UI&quot;;</string>
-          </property>
-          <property name="text">
-           <string>Colorize</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
         </item>
        </layout>
       </item>
@@ -454,6 +435,12 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QComboBox" name="cameraViewComboBox1"/>
+      </item>
+      <item>
+       <widget class="QComboBox" name="cameraViewComboBox2"/>
       </item>
       <item>
        <widget class="QPushButton" name="exportButton">

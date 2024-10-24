@@ -19,12 +19,17 @@
 #include <QtCharts/QValueAxis>
 #include <QtCharts/QBarCategoryAxis>
 
+#include <QListWidget>
+#include <QInputDialog>
+#include <QStandardItemModel>
+
 
 using namespace pcl;
 using namespace pcl::io;
 using namespace pcl::console;
 using namespace pcl::search;
 using namespace std;
+using namespace pcl::visualization;
 
 
 #include <pcl/visualization/cloud_viewer.h>
@@ -36,18 +41,33 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    cloud1 = nullptr;
+    cloud2 = nullptr;
 
     connect(ui->openButton1, &QPushButton::clicked, this, &MainWindow::openFileForViewer1);
     connect(ui->openButton2, &QPushButton::clicked, this, &MainWindow::openFileForViewer2);
     connect(ui->pointSizeSlider1, &QSlider::valueChanged, this, &MainWindow::onSlider1ValueChanged);
     connect(ui->pointSizeSlider2, &QSlider::valueChanged, this, &MainWindow::onSlider2ValueChanged);
-    connect(ui->pointSizeSlider1, &QSlider::valueChanged, this, &MainWindow::refreshView1);
-    connect(ui->pointSizeSlider2, &QSlider::valueChanged, this, &MainWindow::refreshView2);
-    connect(ui->resetButton1, &QPushButton::clicked, [this]() {viewer1->resetCamera();});
-    connect(ui->resetButton2, &QPushButton::clicked, [this]() {viewer2->resetCamera();});
-    connect(ui->deleteButton1, &QPushButton::clicked, [this]() {viewer1->removeAllPointClouds(); refreshView1();});
-    connect(ui->deleteButton2, &QPushButton::clicked, [this]() {viewer2->removeAllPointClouds(); refreshView2();});
-    //connect(ui->colorizeButton, &QCheckBox::toggled, [this]() {colorizeCloud(cloud1, ui->)});
+
+    connect(ui->resetButton1, &QPushButton::clicked, [this]() {
+        viewer1->resetCamera();
+        updateViewer(1);
+    });
+    connect(ui->resetButton2, &QPushButton::clicked, [this]() {
+        viewer2->resetCamera();
+        updateViewer(2);
+    });
+    connect(ui->deleteButton1, &QPushButton::clicked, [this]() {
+        cloud1 = nullptr;
+        colorizeHandler();
+    });
+    connect(ui->deleteButton2, &QPushButton::clicked, [this]() {
+        cloud2 = nullptr;
+        colorizeHandler();
+    });
+    connect(ui->colorFormatBox, &QComboBox::currentTextChanged, [this]() {
+        colorizeHandler();
+    });
 
     // Connect slider to spin box
     connect(ui->pointSizeSlider1, &QSlider::valueChanged, [=](int value) {ui->pointSizeBox1->setValue(value / 10.0);});
@@ -61,14 +81,14 @@ MainWindow::MainWindow(QWidget *parent)
     auto renderer1 = vtkSmartPointer<vtkRenderer>::New();
     auto renderWindow1 = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
     renderWindow1->AddRenderer(renderer1);
-    viewer1.reset(new pcl::visualization::PCLVisualizer(renderer1, renderWindow1, "viewer1", false));
+    viewer1.reset(new PCLVisualizer(renderer1, renderWindow1, "viewer1", false));
     ui->qvtkWidget1->setRenderWindow(viewer1->getRenderWindow());
     viewer1->setupInteractor(ui->qvtkWidget1->interactor(), ui->qvtkWidget1->renderWindow());
 
     auto renderer2 = vtkSmartPointer<vtkRenderer>::New();
     auto renderWindow2 = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
     renderWindow2->AddRenderer(renderer2);
-    viewer2.reset(new pcl::visualization::PCLVisualizer(renderer2, renderWindow2, "viewer2", false));
+    viewer2.reset(new PCLVisualizer(renderer2, renderWindow2, "viewer2", false));
     ui->qvtkWidget2->setRenderWindow(viewer2->getRenderWindow());
     viewer2->setupInteractor(ui->qvtkWidget2->interactor(), ui->qvtkWidget2->renderWindow());
 
@@ -76,24 +96,40 @@ MainWindow::MainWindow(QWidget *parent)
     chartView = new QChartView();
     chartView->setRenderHint(QPainter::Antialiasing);
     chartView->setStyleSheet("background: transparent");
-    chartView->setMinimumHeight(300);
+    chartView->setMinimumHeight(200);
+    chartView->setMaximumHeight(300);
     ui->histogramPlace->addWidget(chartView);
     QChart* chart = new QChart();
-    chart->setBackgroundBrush(Qt::NoBrush); // Transparent background
-    chart->setPlotAreaBackgroundVisible(false); // No background in the plot area
-    chart->legend()->hide(); // Hide the legend
-    chart->setTitle("Histogram"); // No title
-    QValueAxis* axisX = new QValueAxis();
-    axisX->setRange(0, 10);
-    axisX->setTickCount(10);
-    axisX->setGridLineVisible(false);
-    chart->addAxis(axisX, Qt::AlignBottom);
     chartView->setChart(chart);
-    chartView->setMaximumHeight(150);
+    resetHistogram();
+
 
     // Populate the ColorFormatBox
     ui->colorFormatBox->addItem("White");
     ui->colorFormatBox->addItem("RGB");
+    ui->colorFormatBox->addItem("Black");
+
+
+
+    cameraViews = QVector<pcl::visualization::Camera>();
+    cameraViewNames = QVector<QString>();
+
+    cameraViewNames.push_back("Default");
+    Camera cam;
+    viewer1->getCameraParameters(cam);
+    cameraViews.push_back(cam);
+
+    connect(ui->cameraViewComboBox1, QOverload<int>::of(&QComboBox::currentIndexChanged),this, [=](int index) {
+        // Apply the view to both viewers when the user selects a new item
+        applyViewToViewer(viewer1, index);
+    });
+    connect(ui->cameraViewComboBox2, QOverload<int>::of(&QComboBox::currentIndexChanged),this, [=](int index) {
+        // Apply the view to both viewers when the user selects a new item
+        applyViewToViewer(viewer2, index);
+    });
+    connect(ui->saveViewButton1, &QPushButton::clicked, this, [=]() {
+        saveCurrentView(viewer1); // Save viewer1's current view
+    });
 }
 
 MainWindow::~MainWindow()
@@ -119,9 +155,13 @@ vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b)
     return distances;
 }
 
-QColor calculateColor(float color_factor, string format = "white") {
+QColor MainWindow::calculateColor(float color_factor) {
     QColor color;
-    if (format == "rgb") {
+
+    QString format = ui->colorFormatBox->currentText();
+    if (!ui->colorFormatBox->isEnabled()) format = "WHITE";
+
+    if (format == "RGB") {
         if (color_factor <= 0.25f) {
             // Red to Yellow
             color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
@@ -136,14 +176,14 @@ QColor calculateColor(float color_factor, string format = "white") {
             color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
         }
     }
-    else if (format == "white") {
+    else if (format == "WHITE") {
         color.setRgb(255,255,255);
     }
 
     return color;
 }
 
-void colorizePoint(PointT &point, float distance, float max_distance, float min_distance) {
+void MainWindow::colorizePoint(PointT &point, float distance, float max_distance, float min_distance) {
     // Normalize the distance for coloring (assuming max distance is a threshold)
     float color_factor;
     if (max_distance - min_distance == 0)
@@ -151,13 +191,13 @@ void colorizePoint(PointT &point, float distance, float max_distance, float min_
     else
         color_factor = (distance - min_distance) / (max_distance - min_distance);
 
-    QColor color = calculateColor(color_factor, "rgb");
+    QColor color = calculateColor(color_factor);
     point.r = color.red();
     point.g = color.green();
     point.b = color.blue();
 }
 
-void MainWindow::colorizeCloud(PointCloudT::Ptr &cloud, vector<float> distances){
+void MainWindow::colorizeCloud(PointCloudT::Ptr &cloud, const vector<float>& distances){
     double max_dist = *max_element(distances.begin(), distances.end());
     double min_dist = *min_element(distances.begin(), distances.end());
     for (size_t i = 0; i < cloud->points.size(); ++i) {
@@ -166,20 +206,16 @@ void MainWindow::colorizeCloud(PointCloudT::Ptr &cloud, vector<float> distances)
     }
 }
 
-double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // compare A to B
     vector<float> distances = getDistances(cloud_a, cloud_b);
 
     double max_dist = *max_element(distances.begin(), distances.end());
 
-    if (colorized) colorizeCloud(cloud_a, distances);
-    showHistogram(distances);
-    updateViewer(1, cloud_a);
-
     return max_dist;
 }
 
-double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // compare A to B
     vector<float> distances = getDistances(cloud_a, cloud_b);
 
@@ -188,14 +224,10 @@ double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &
         sum += distances[i] * distances[i];
     }
 
-    if (colorized) colorizeCloud(cloud_a, distances);
-    showHistogram(distances);
-    updateViewer(1, cloud_a);
-
     return sum / cloud_a->points.size();
 }
 
-double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // compare A to B
     return 0;
 }
@@ -246,7 +278,7 @@ vector<double> normalizeDistribution(const vector<float> &distances) {
 }
 
 // Function to calculate Jensen-Shannon divergence
-double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorized) {
+double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // Compare cloud A to B
     vector<float> distances_a = getDistances(cloud_a, cloud_b);
     vector<float> distances_b = getDistances(cloud_b, cloud_a);
@@ -258,15 +290,11 @@ double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloud
     // Calculate the Jensen-Shannon Divergence
     double jsd = jensenShannonDivergenceFromDistributions(P, Q);
 
-    if (colorized) colorizeCloud(cloud_a, distances_a);
-    showHistogram(distances_a);
-    updateViewer(1, cloud_a);
-
     return jsd;
 }
 
 // Function to create histogram data
-QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBins, bool colorized = true) {
+QBarSeries* MainWindow::createHistogramSeries(const std::vector<float>& distances, int numBins) {
     float maxDist = *std::max_element(distances.begin(), distances.end());
     float minDist = *std::min_element(distances.begin(), distances.end());
     float binWidth = (maxDist - minDist) / numBins;
@@ -284,7 +312,7 @@ QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBi
         QBarSet* barSet = new QBarSet("");
         *barSet << bins[i];
         float color_factor = (static_cast<float>(i) / numBins);
-        QColor color = calculateColor(color_factor, "rgb");
+        QColor color = calculateColor(color_factor);
 
         barSet->setColor(color);
         barSet->setBrush(QBrush(color));
@@ -297,6 +325,7 @@ QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBi
 
 void MainWindow::showHistogram(const std::vector<float>& distances) {
     int numBins = 100; // Set the number of bins to 50 for more granularity
+
     QBarSeries* series = createHistogramSeries(distances, numBins);
 
     float minDist = *std::min_element(distances.begin(), distances.end());
@@ -315,6 +344,7 @@ void MainWindow::showHistogram(const std::vector<float>& distances) {
     axisX->setRange(minDist, maxDist);
     axisX->setTickCount(10);
     axisX->setGridLineVisible(false);
+    chart->removeAxis(chart->axes(Qt::Horizontal).first());
     chart->addAxis(axisX, Qt::AlignBottom);
 
     // Configure y-axis without labels or grid lines
@@ -332,51 +362,80 @@ void MainWindow::onCalculate() {
         return;
     }
 
-    bool colorized = true; // Assuming colorization is always on; you can add a checkbox if needed
-
-    double distance;
+    double distance = -1;
     if (ui->hausdorffRadioButton->isChecked()) {
-        distance = hausdorffDistance(cloud1, cloud2, colorized);
+        distance = hausdorffDistance(cloud1, cloud2);
         QMessageBox::information(this, "Hausdorff Distance", QString::number(distance));
     } else if (ui->chamferRadioButton->isChecked()) {
-        distance = chamferDistance(cloud1, cloud2, colorized);
+        distance = chamferDistance(cloud1, cloud2);
         QMessageBox::information(this, "Chamfer Distance", QString::number(distance));
     } else if (ui->earthMoversRadioButton->isChecked()) {
-        distance = earthMoversDistance(cloud1, cloud2, colorized);
+        distance = earthMoversDistance(cloud1, cloud2);
         QMessageBox::information(this, "Earth Mover's Distance", QString::number(distance));
     } else if (ui->jensenShannonRadioButton->isChecked()) {
-        distance = jensenShannonDivergence(cloud1, cloud2, colorized);
+        distance = jensenShannonDivergence(cloud1, cloud2);
         QMessageBox::information(this, "Jenses-Shannon Divergence", QString::number(distance));
     } else {
         QMessageBox::warning(this, "Error", "Please select a distance metric.");
     }
+}
 
-    updateViewer(1, cloud1);
-    updateViewer(2, cloud2);
+void MainWindow::colorizeHandler() {
+    bool cloudsLoaded = (cloud1 != nullptr && cloud2 != nullptr); // Check if both clouds are loaded
+
+    // Enable or disable colorizeButton and colorFormatBox based on whether both clouds are loaded
+    ui->colorFormatBox->setEnabled(cloudsLoaded); // Only enable colorFormatBox if colorizeButton is checked and clouds are loaded
+
+    if (cloudsLoaded) {
+        vector<float> distances = getDistances(cloud1, cloud2);
+        showHistogram(distances);
+        colorizeCloud(cloud1, distances);
+    } else {
+        // If one or both clouds are missing, ensure colorizeButton and colorFormatBox are disabled
+        //ui->colorizeButton->setChecked(false);
+        resetHistogram(); // Reset the chart
+        if (cloud1 != nullptr) {
+            colorizeCloud(cloud1, vector<float>(cloud1->size()));
+        }
+    }
+    updateViewer(1);
+    updateViewer(2);
 }
 
 
+void MainWindow::resetHistogram() {
+    QChart *chart = chartView->chart();
 
-void MainWindow::refreshView1() {
-    viewer1->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize1, "cloud1");
-    ui->qvtkWidget1->renderWindow()->Render();
+    chart->removeAllSeries();
+    chart->setBackgroundBrush(Qt::NoBrush); // Transparent background
+    chart->setPlotAreaBackgroundVisible(false); // No background in the plot area
+    chart->legend()->hide(); // Hide the legend
+    chart->setTitle("Histogram");
+
+    if (!chart->axes(Qt::Horizontal).empty()) chart->removeAxis(chart->axes(Qt::Horizontal).first());
+    QValueAxis* axisX = new QValueAxis();
+    axisX->setRange(0, 10);
+    axisX->setTickCount(10);
+    axisX->setGridLineVisible(false);
+    chart->addAxis(axisX, Qt::AlignBottom);
 }
 
-void MainWindow::refreshView2() {
-    viewer2->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, pointSize2, "cloud2");
-    ui->qvtkWidget2->renderWindow()->Render();
-}
-
-void MainWindow::updateViewer(int id, PointCloudT::Ptr cloud) {
+void MainWindow::updateViewer(int id) {
     if (id == 1) {
         viewer1->removeAllPointClouds();
-        viewer1->addPointCloud(cloud, "cloud1");
-        refreshView1();
+        if (cloud1 != nullptr) {
+            viewer1->addPointCloud(cloud1);
+            viewer1->setPointCloudRenderingProperties (PCL_VISUALIZER_POINT_SIZE, pointSize1);
+        }
+        ui->qvtkWidget1->renderWindow()->Render();
     }
     else if (id == 2) {
         viewer2->removeAllPointClouds();
-        viewer2->addPointCloud(cloud, "cloud2");
-        refreshView2();
+        if (cloud2 != nullptr) {
+            viewer2->addPointCloud(cloud2);
+            viewer2->setPointCloudRenderingProperties (PCL_VISUALIZER_POINT_SIZE, pointSize2);
+        }
+        ui->qvtkWidget2->renderWindow()->Render();
     }
 }
 
@@ -385,7 +444,7 @@ void MainWindow::openFileForViewer1()
     cloud1 = openFile();
 
     if (cloud1) {
-        updateViewer(1, cloud1);
+        colorizeHandler();
     }
 }
 
@@ -394,7 +453,7 @@ void MainWindow::openFileForViewer2()
     cloud2 = openFile();
 
     if (cloud2) {
-        updateViewer(2, cloud2);
+        colorizeHandler();
     }
 }
 
@@ -492,10 +551,130 @@ PointCloudT::Ptr MainWindow::transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr
 void MainWindow::onSlider1ValueChanged(double value)
 {
     pointSize1 = value / 10.0;
+    updateViewer(1);
 
 }
 
 void MainWindow::onSlider2ValueChanged(double value)
 {
     pointSize2 = value / 10.0;
+    updateViewer(2);
+}
+
+
+
+
+/*
+void MainWindow::addCameraViewItem(const QString& viewName, bool allowEdit) {
+    CameraViewItemWidget* itemWidget = new CameraViewItemWidget(viewName, allowEdit);
+
+    // Add widget to both ComboBoxes
+    cameraViewComboBox1->addItem("");
+    cameraViewComboBox2->addItem("");
+
+    addCustomWidgetToComboBox(cameraViewComboBox1, itemWidget);
+    addCustomWidgetToComboBox(cameraViewComboBox2, itemWidget);
+
+    // Connect rename and delete actions to appropriate functions
+    if (allowEdit) {
+        connect(itemWidget, &CameraViewItemWidget::renameClicked, this, [=]() {
+            renameSelectedView(cameraViewComboBox1->currentIndex());
+        });
+        connect(itemWidget, &CameraViewItemWidget::deleteClicked, this, [=]() {
+            deleteSelectedView(cameraViewComboBox1->currentIndex());
+        });
+    }
+}
+*/
+
+
+
+// Function to populate the list with the shared views
+void MainWindow::populateViewList() {
+    ui->cameraViewComboBox1->clear(); // Clear existing items
+    ui->cameraViewComboBox2->clear(); // Clear existing items
+
+    QStandardItemModel *model = new QStandardItemModel(this);
+
+    for (int i = 1; i < cameraViews.size(); ++i) {
+        QWidget* itemWidget = new QWidget();
+        QHBoxLayout* layout = new QHBoxLayout(itemWidget);
+
+        QLabel* viewLabel = new QLabel(cameraViewNames[i]);
+        QPushButton* deleteButton = new QPushButton("Delete");
+        QPushButton* renameButton = new QPushButton("Rename");
+
+        layout->addWidget(viewLabel);
+        layout->addWidget(renameButton);
+        layout->addWidget(deleteButton);
+        layout->setContentsMargins(0, 0, 0, 0);  // Remove extra spacing
+        itemWidget->setLayout(layout);
+
+        // Connect delete and rename buttons to their respective slots
+        connect(deleteButton, &QPushButton::clicked, this, [=]() { deleteView(i); });
+        connect(renameButton, &QPushButton::clicked, this, [=]() { renameView(i); });
+
+        // Create an item to hold the widget in the model
+        QStandardItem *item = new QStandardItem();
+        item->setSizeHint(itemWidget->sizeHint());
+        item->setData(QVariant::fromValue(itemWidget), Qt::UserRole); // Store
+
+         model->appendRow(item); // Add item to the model
+    }
+
+    ui->cameraViewComboBox1->setModel(model);
+    // Set a custom view to display the widgets
+    QListView *listView = new QListView(ui->cameraViewComboBox1);
+    listView->setModel(model);
+    ui->cameraViewComboBox1->setView(listView);
+
+}
+
+void addCameraViewWidget() {
+
+}
+
+void MainWindow::saveCurrentView(PCLVisualizer::Ptr viewer) {
+    Camera camera;
+    viewer->getCameraParameters(camera); // Get the current camera parameters
+    bool ok;
+    QString newName = QInputDialog::getText(this, tr("Rename View"),
+                                            tr("New name for view:"), QLineEdit::Normal,
+                                            tr("View %1").arg(cameraViews.size() + 1), &ok);
+    if (ok && !newName.isEmpty()) {
+        // Here we assume there's an additional name field for each CameraView
+        // You can adjust this depending on how you store names
+        cameraViews.push_back(camera);
+        cameraViewNames.push_back(newName);
+        populateViewList();  // Refresh list with the updated name
+    }
+}
+
+void MainWindow::deleteView(int index) {
+    if (index >= 0 && index < cameraViews.size()) {
+        cameraViews.erase(cameraViews.begin() + index);
+        cameraViewNames.erase(cameraViewNames.begin() + index);
+        populateViewList();  // Update the list after deletion
+    }
+}
+
+void MainWindow::renameView(int index) {
+    if (index > 0 && index < cameraViews.size()) {
+        bool ok;
+        QString newName = QInputDialog::getText(this, tr("Rename View"),
+                                                tr("New name for view:"), QLineEdit::Normal,
+                                                tr("View %1").arg(index + 1), &ok);
+        if (ok && !newName.isEmpty()) {
+            // Here we assume there's an additional name field for each CameraView
+            // You can adjust this depending on how you store names
+            cameraViewNames[index] = newName;
+            populateViewList();  // Refresh list with the updated name
+        }
+    }
+}
+
+void MainWindow::applyViewToViewer(PCLVisualizer::Ptr viewer, int index) {
+    if (index > 0 && index <= cameraViews.size()) {
+        viewer->setCameraParameters(cameraViews[index]);
+    }
 }

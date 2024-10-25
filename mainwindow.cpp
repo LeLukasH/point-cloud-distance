@@ -49,14 +49,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->pointSizeSlider1, &QSlider::valueChanged, this, &MainWindow::onSlider1ValueChanged);
     connect(ui->pointSizeSlider2, &QSlider::valueChanged, this, &MainWindow::onSlider2ValueChanged);
 
-    connect(ui->resetButton1, &QPushButton::clicked, [this]() {
-        viewer1->resetCamera();
-        updateViewer(1);
-    });
-    connect(ui->resetButton2, &QPushButton::clicked, [this]() {
-        viewer2->resetCamera();
-        updateViewer(2);
-    });
     connect(ui->deleteButton1, &QPushButton::clicked, [this]() {
         cloud1 = nullptr;
         colorizeHandler();
@@ -92,6 +84,9 @@ MainWindow::MainWindow(QWidget *parent)
     ui->qvtkWidget2->setRenderWindow(viewer2->getRenderWindow());
     viewer2->setupInteractor(ui->qvtkWidget2->interactor(), ui->qvtkWidget2->renderWindow());
 
+    viewer1->setShowFPS(0);
+    viewer2->setShowFPS(0);
+
     // ChartView
     chartView = new QChartView();
     chartView->setRenderHint(QPainter::Antialiasing);
@@ -111,25 +106,61 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-    cameraViews = QVector<pcl::visualization::Camera>();
-    cameraViewNames = QVector<QString>();
+    cameraViews = QVector<CameraView>();
 
-    cameraViewNames.push_back("Default");
-    Camera cam;
-    viewer1->getCameraParameters(cam);
-    cameraViews.push_back(cam);
+    // Set default camera parameters (adjust these as needed for your default view)
+    Camera camDefault, camTop, camBottom, camLeft, camRight;
+    camDefault.pos[2] = 15.0;
+    camTop.pos[1] = 15.0;
+    camTop.view[1] = 0;
+    camTop.view[1] = -1;
+    camBottom.pos[1] = -15.0;
+    camBottom.view[1] = 0;
+    camBottom.view[1] = 1;
+    camLeft.pos[0] = -15.0;
+    camRight.pos[0] = 15.0;
+    cameraViews.push_back({ "Default", camDefault, 2.0 });
+    cameraViews.push_back({ "Top", camTop, 2.0 });
+    cameraViews.push_back({ "Bottom", camBottom, 2.0 });
+    cameraViews.push_back({ "Left", camLeft, 2.0 });
+    cameraViews.push_back({ "Right", camRight, 2.0 });
 
-    connect(ui->cameraViewComboBox1, QOverload<int>::of(&QComboBox::currentIndexChanged),this, [=](int index) {
-        // Apply the view to both viewers when the user selects a new item
-        applyViewToViewer(viewer1, index);
+    updateComboBoxes();
+
+    connect(ui->cameraViewComboBox1, QOverload<int>::of(&QComboBox::currentIndexChanged),this, [=](int index) {applyViewToViewer(1, index);});
+    connect(ui->cameraViewComboBox2, QOverload<int>::of(&QComboBox::currentIndexChanged),this, [=](int index) {applyViewToViewer(2, index);});
+    connect(ui->saveViewButton1, &QPushButton::clicked, this, [=]() {saveCurrentView(1);});
+    connect(ui->deleteViewButton1, &QPushButton::clicked, this, [=]() {deleteCurrentView(ui->cameraViewComboBox1->currentIndex());});
+    connect(ui->saveViewButton2, &QPushButton::clicked, this, [=]() {saveCurrentView(2);});
+    connect(ui->deleteViewButton2, &QPushButton::clicked, this, [=]() {deleteCurrentView(ui->cameraViewComboBox2->currentIndex());});
+
+    viewer1->registerMouseCallback([this](const pcl::visualization::MouseEvent& event) {
+            mouseCallback(event, 1);
+        });
+
+    viewer2->registerMouseCallback([this](const pcl::visualization::MouseEvent& event) {
+        mouseCallback(event, 2);
     });
-    connect(ui->cameraViewComboBox2, QOverload<int>::of(&QComboBox::currentIndexChanged),this, [=](int index) {
-        // Apply the view to both viewers when the user selects a new item
-        applyViewToViewer(viewer2, index);
+
+    //connect(viewer2, MouseEvent::MouseButtonRelease, this, [=](){onCameraChanged(2);});
+
+    connect(ui->writeButton, &QPushButton::clicked, this, [=]() {
+        Camera cam;
+        viewer1->getCameraParameters(cam);
+        vector<Camera> cameras;
+        viewer1->getCameras(cameras);
+        for (Camera c : cameras)
+            printCamera(cam);
     });
-    connect(ui->saveViewButton1, &QPushButton::clicked, this, [=]() {
-        saveCurrentView(viewer1); // Save viewer1's current view
-    });
+}
+
+void MainWindow::printCamera(const Camera& camera) {
+    qDebug() << "Camera Position:" << camera.pos[0] << camera.pos[1] << camera.pos[2];
+    qDebug() << "Focal Point:" << camera.focal[0] << camera.focal[1] << camera.focal[2];
+    qDebug() << "View Up:" << camera.view[0] << camera.view[1] << camera.view[2];
+    qDebug() << "Clipping Planes:" << camera.clip[0] << camera.clip[1];
+    qDebug() << "Field of View:" << camera.fovy;
+    qDebug() << "------------";
 }
 
 MainWindow::~MainWindow()
@@ -159,7 +190,7 @@ QColor MainWindow::calculateColor(float color_factor) {
     QColor color;
 
     QString format = ui->colorFormatBox->currentText();
-    if (!ui->colorFormatBox->isEnabled()) format = "WHITE";
+    if (!ui->colorFormatBox->isEnabled()) format = "White";
 
     if (format == "RGB") {
         if (color_factor <= 0.25f) {
@@ -176,7 +207,7 @@ QColor MainWindow::calculateColor(float color_factor) {
             color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
         }
     }
-    else if (format == "WHITE") {
+    else if (format == "White") {
         color.setRgb(255,255,255);
     }
 
@@ -297,6 +328,9 @@ double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloud
 QBarSeries* MainWindow::createHistogramSeries(const std::vector<float>& distances, int numBins) {
     float maxDist = *std::max_element(distances.begin(), distances.end());
     float minDist = *std::min_element(distances.begin(), distances.end());
+
+    if (maxDist - minDist == 0) maxDist += 0.005;
+
     float binWidth = (maxDist - minDist) / numBins;
 
     std::vector<int> bins(numBins, 0);
@@ -330,6 +364,8 @@ void MainWindow::showHistogram(const std::vector<float>& distances) {
 
     float minDist = *std::min_element(distances.begin(), distances.end());
     float maxDist = *std::max_element(distances.begin(), distances.end());
+
+    if (maxDist - minDist == 0) maxDist += 0.005;
 
     // Set bar width to fill space (no gap between bars)
     series->setBarWidth(1.0);
@@ -428,6 +464,7 @@ void MainWindow::updateViewer(int id) {
             viewer1->setPointCloudRenderingProperties (PCL_VISUALIZER_POINT_SIZE, pointSize1);
         }
         ui->qvtkWidget1->renderWindow()->Render();
+
     }
     else if (id == 2) {
         viewer2->removeAllPointClouds();
@@ -436,6 +473,7 @@ void MainWindow::updateViewer(int id) {
             viewer2->setPointCloudRenderingProperties (PCL_VISUALIZER_POINT_SIZE, pointSize2);
         }
         ui->qvtkWidget2->renderWindow()->Render();
+
     }
 }
 
@@ -564,117 +602,197 @@ void MainWindow::onSlider2ValueChanged(double value)
 
 
 
-/*
-void MainWindow::addCameraViewItem(const QString& viewName, bool allowEdit) {
-    CameraViewItemWidget* itemWidget = new CameraViewItemWidget(viewName, allowEdit);
 
-    // Add widget to both ComboBoxes
-    cameraViewComboBox1->addItem("");
-    cameraViewComboBox2->addItem("");
-
-    addCustomWidgetToComboBox(cameraViewComboBox1, itemWidget);
-    addCustomWidgetToComboBox(cameraViewComboBox2, itemWidget);
-
-    // Connect rename and delete actions to appropriate functions
-    if (allowEdit) {
-        connect(itemWidget, &CameraViewItemWidget::renameClicked, this, [=]() {
-            renameSelectedView(cameraViewComboBox1->currentIndex());
-        });
-        connect(itemWidget, &CameraViewItemWidget::deleteClicked, this, [=]() {
-            deleteSelectedView(cameraViewComboBox1->currentIndex());
-        });
-    }
-}
-*/
-
-
-
-// Function to populate the list with the shared views
-void MainWindow::populateViewList() {
-    ui->cameraViewComboBox1->clear(); // Clear existing items
-    ui->cameraViewComboBox2->clear(); // Clear existing items
-
-    QStandardItemModel *model = new QStandardItemModel(this);
-
-    for (int i = 1; i < cameraViews.size(); ++i) {
-        QWidget* itemWidget = new QWidget();
-        QHBoxLayout* layout = new QHBoxLayout(itemWidget);
-
-        QLabel* viewLabel = new QLabel(cameraViewNames[i]);
-        QPushButton* deleteButton = new QPushButton("Delete");
-        QPushButton* renameButton = new QPushButton("Rename");
-
-        layout->addWidget(viewLabel);
-        layout->addWidget(renameButton);
-        layout->addWidget(deleteButton);
-        layout->setContentsMargins(0, 0, 0, 0);  // Remove extra spacing
-        itemWidget->setLayout(layout);
-
-        // Connect delete and rename buttons to their respective slots
-        connect(deleteButton, &QPushButton::clicked, this, [=]() { deleteView(i); });
-        connect(renameButton, &QPushButton::clicked, this, [=]() { renameView(i); });
-
-        // Create an item to hold the widget in the model
-        QStandardItem *item = new QStandardItem();
-        item->setSizeHint(itemWidget->sizeHint());
-        item->setData(QVariant::fromValue(itemWidget), Qt::UserRole); // Store
-
-         model->appendRow(item); // Add item to the model
-    }
-
-    ui->cameraViewComboBox1->setModel(model);
-    // Set a custom view to display the widgets
-    QListView *listView = new QListView(ui->cameraViewComboBox1);
-    listView->setModel(model);
-    ui->cameraViewComboBox1->setView(listView);
-
-}
-
-void addCameraViewWidget() {
-
-}
-
-void MainWindow::saveCurrentView(PCLVisualizer::Ptr viewer) {
+void MainWindow::saveCurrentView(int id) {
     Camera camera;
-    viewer->getCameraParameters(camera); // Get the current camera parameters
+    float pointSize;
+    int showIndex1;
+    int showIndex2;
+    QComboBox* activeComboBox;
+    QComboBox* notActiveComboBox;
+
+    if (id == 1) {
+        viewer1->getCameraParameters(camera);
+        pointSize = pointSize1;
+        showIndex1 = cameraViews.size();
+        showIndex2 = ui->cameraViewComboBox2->currentIndex();
+        activeComboBox = ui->cameraViewComboBox1;
+        notActiveComboBox = ui->cameraViewComboBox2;
+    }
+    else if (id == 2) {
+        viewer2->getCameraParameters(camera);
+        pointSize = pointSize2;
+        showIndex1 = ui->cameraViewComboBox1->currentIndex();
+        showIndex2 = cameraViews.size();
+        activeComboBox = ui->cameraViewComboBox2;
+        notActiveComboBox = ui->cameraViewComboBox1;
+    }
+    else {
+        return;
+    }
+
+    // Loop until a unique name is entered or the user cancels
     bool ok;
-    QString newName = QInputDialog::getText(this, tr("Rename View"),
-                                            tr("New name for view:"), QLineEdit::Normal,
-                                            tr("View %1").arg(cameraViews.size() + 1), &ok);
-    if (ok && !newName.isEmpty()) {
-        // Here we assume there's an additional name field for each CameraView
-        // You can adjust this depending on how you store names
-        cameraViews.push_back(camera);
-        cameraViewNames.push_back(newName);
-        populateViewList();  // Refresh list with the updated name
+    QString newName;
+    do {
+        newName = QInputDialog::getText(this, tr("Save View"),
+                                        tr("Enter a unique name for the view:"), QLineEdit::Normal,
+                                        tr("View %1").arg(cameraViews.size()), &ok);
+
+        if (!ok || newName.isEmpty()) {
+            return; // User canceled or entered an empty name, so exit without saving
+        }
+
+        // Check if the entered name already exists in the cameraViews list
+        bool nameExists = false;
+        for (const auto& view : cameraViews) {
+            if (view.name == newName) {
+                QMessageBox::warning(this, tr("Duplicate Name"),
+                                     tr("A view with this name already exists. Please choose a different name."));
+                nameExists = true;
+                break;
+            }
+        }
+
+        if (!nameExists) {
+            break; // Name is unique, exit loop to proceed with saving
+        }
+    } while (true);
+
+    // Create and add the new view if the name is unique
+    CameraView view;
+    view.name = newName;
+    view.camera = camera;
+    view.pointSize = pointSize;
+
+    cameraViews.push_back(view); // Add the new view to the list
+
+    // Remove "[Custom]" if it exists
+    int customIndex = activeComboBox->findText("[Custom]");
+    if (customIndex != -1) {
+        activeComboBox->removeItem(customIndex);
     }
+    if (notActiveComboBox->findText("[Custom]") != -1) {
+        if (id == 1) showIndex2++;
+        else showIndex1++;
+    }
+
+    updateComboBoxes(showIndex1, showIndex2); // Refresh the ComboBoxes
 }
 
-void MainWindow::deleteView(int index) {
-    if (index >= 0 && index < cameraViews.size()) {
-        cameraViews.erase(cameraViews.begin() + index);
-        cameraViewNames.erase(cameraViewNames.begin() + index);
-        populateViewList();  // Update the list after deletion
-    }
-}
-
-void MainWindow::renameView(int index) {
+void MainWindow::deleteCurrentView(int index) {
     if (index > 0 && index < cameraViews.size()) {
-        bool ok;
-        QString newName = QInputDialog::getText(this, tr("Rename View"),
-                                                tr("New name for view:"), QLineEdit::Normal,
-                                                tr("View %1").arg(index + 1), &ok);
-        if (ok && !newName.isEmpty()) {
-            // Here we assume there's an additional name field for each CameraView
-            // You can adjust this depending on how you store names
-            cameraViewNames[index] = newName;
-            populateViewList();  // Refresh list with the updated name
+        QMessageBox::StandardButton confirm = QMessageBox::question(this, "Delete View",
+                                                                    tr("Are you sure you want to delete %1?").arg(cameraViews[index].name));
+
+        if (confirm == QMessageBox::Yes) {
+            cameraViews.removeAt(index);
+
+            int showIndex1 = ui->cameraViewComboBox1->currentIndex();
+            int showIndex2 = ui->cameraViewComboBox2->currentIndex();
+
+            // If the deleted index is the selected index in either ComboBox, set that ComboBox to "[Custom]"
+            if (showIndex1 == index) {
+                if (ui->cameraViewComboBox1->findText("[Custom]") == -1) {
+                    ui->cameraViewComboBox1->addItem("[Custom]");
+                }
+                showIndex1 = ui->cameraViewComboBox1->findText("[Custom]");
+            }
+            if (showIndex2 == index) {
+                if (ui->cameraViewComboBox2->findText("[Custom]") == -1) {
+                    ui->cameraViewComboBox2->addItem("[Custom]");
+                }
+                showIndex2 = ui->cameraViewComboBox2->findText("[Custom]");
+            }
+
+            // Adjust indexes if needed (if an item before them was deleted)
+            if (showIndex1 > index) showIndex1--;
+            if (showIndex2 > index) showIndex2--;
+
+            updateComboBoxes(showIndex1, showIndex2);
         }
     }
 }
 
-void MainWindow::applyViewToViewer(PCLVisualizer::Ptr viewer, int index) {
-    if (index > 0 && index <= cameraViews.size()) {
-        viewer->setCameraParameters(cameraViews[index]);
+// Sync combo boxes with current views
+void MainWindow::updateComboBoxes(int showIndex1, int showIndex2) {
+    int customPosition1 = ui->cameraViewComboBox1->findText("[Custom]");
+    int customPosition2 = ui->cameraViewComboBox1->findText("[Custom]");
+
+    // Clear and reset both combo boxes
+    ui->cameraViewComboBox1->clear();
+    ui->cameraViewComboBox2->clear();
+
+    if (showIndex1 > cameraViews.size()) showIndex1 = cameraViews.size();
+    if (showIndex2 > cameraViews.size()) showIndex2 = cameraViews.size();
+
+    for (const auto& view : cameraViews) {
+        ui->cameraViewComboBox1->addItem(view.name);
+        ui->cameraViewComboBox2->addItem(view.name);
+    }
+
+    if (customPosition1 != -1) {
+        ui->cameraViewComboBox1->addItem("[Custom]");
+    }
+    if (customPosition2 != -1) ui->cameraViewComboBox2->addItem("[Custom]");
+
+    ui->cameraViewComboBox1->setCurrentIndex(showIndex1);
+    ui->cameraViewComboBox2->setCurrentIndex(showIndex2);
+}
+
+void MainWindow::applyViewToViewer(int id, int index) {
+    if (index >= 0 && index < cameraViews.size()) {
+        pcl::visualization::PCLVisualizer::Ptr viewer = (id == 1) ? viewer1 : viewer2;
+        QSlider* pointSizeSlider = (id == 1) ? ui->pointSizeSlider1 : ui->pointSizeSlider2;
+        QComboBox* activeComboBox = (id == 1) ? ui->cameraViewComboBox1 : ui->cameraViewComboBox2;;
+
+        // Remove "[Custom]" if it exists
+        int customIndex = activeComboBox->findText("[Custom]");
+        if (customIndex != -1) {
+            activeComboBox->removeItem(customIndex);
+        }
+
+        // Save current viewport dimensions to maintain resolution
+        int originalWidth = viewer->getRenderWindow()->GetSize()[0];
+        int originalHeight = viewer->getRenderWindow()->GetSize()[1];
+
+        // Apply the camera parameters
+        viewer->setCameraParameters(cameraViews[index].camera);
+
+        // Restore the original viewport dimensions if they changed
+        viewer->getRenderWindow()->SetSize(originalWidth, originalHeight);
+
+        // Update point size slider
+        pointSizeSlider->setValue(cameraViews[index].pointSize * 10.0);
+
+        // Trigger a re-render for the selected viewer
+        updateViewer(id);
+    }
+}
+
+// Function to update the combo box when the camera changes
+void MainWindow::onCameraChanged(int id) {
+    QComboBox* comboBox = (id == 1) ? ui->cameraViewComboBox1 : ui->cameraViewComboBox2;;
+
+    // Add "[Custom]" if not already present
+    int customIndex = comboBox->findText("[Custom]");
+    if (customIndex == -1) {
+        comboBox->addItem("[Custom]");
+        customIndex = comboBox->count() - 1;  // Last index
+    }
+
+    // Set "[Custom]" as the selected item
+    comboBox->setCurrentIndex(customIndex);
+}
+
+
+// Mouse callback function
+void MainWindow::mouseCallback(const MouseEvent& event, int viewerID) {
+    // Check if the mouse button was released
+    if (event.getType() == MouseEvent::MouseButtonRelease) {
+        if (event.getButton() == MouseEvent::LeftButton) {
+            // Call your custom function when the left mouse button is released
+            onCameraChanged(viewerID);
+        }
     }
 }

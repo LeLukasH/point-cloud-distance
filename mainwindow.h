@@ -20,6 +20,12 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
+struct CameraView {
+    QString name;
+    pcl::visualization::Camera camera;
+    float pointSize; // or float if point size can be fractional
+};
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -52,11 +58,15 @@ private slots:
     void colorizePoint(PointT &point, float distance, float max_distance, float min_distance);
     QColor calculateColor(float color_factor);
 
-    void saveCurrentView(pcl::visualization::PCLVisualizer::Ptr viewer);
-    void deleteView(int index);
-    void renameView(int index);
-    void applyViewToViewer(pcl::visualization::PCLVisualizer::Ptr viewer, int index);
-    void populateViewList();
+    void saveCurrentView(int id);
+    void deleteCurrentView(int index);
+    void updateComboBoxes(int showIndex1 = 0, int showIndex2 = 0);
+    void applyViewToViewer(int id, int index);
+    void onCameraChanged(int id);
+    void mouseCallback(const pcl::visualization::MouseEvent& event, int viewerID);
+
+    void printCamera(const pcl::visualization::Camera& camera);
+
 
 private:
     double pointSize1 = 1;
@@ -70,8 +80,7 @@ protected:
     pcl::visualization::PCLVisualizer::Ptr viewer2;
 
     QChartView* chartView;
-    QVector<pcl::visualization::Camera> cameraViews;
-    QVector<QString> cameraViewNames;
+    QVector<CameraView> cameraViews;
 
 private:
     Ui::MainWindow *ui;

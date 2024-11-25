@@ -12,6 +12,8 @@
 #include <pcl/search/kdtree.h>
 #include <pcl/common/distances.h>
 
+#include <opencv2/opencv.hpp>
+
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
 #include <QtCharts/QBarSeries>
@@ -22,6 +24,7 @@
 #include <QListWidget>
 #include <QInputDialog>
 #include <QStandardItemModel>
+
 
 
 using namespace pcl;
@@ -44,8 +47,8 @@ MainWindow::MainWindow(QWidget *parent)
     cloud1 = nullptr;
     cloud2 = nullptr;
 
-    connect(ui->openButton1, &QPushButton::clicked, this, &MainWindow::openFileForViewer1);
-    connect(ui->openButton2, &QPushButton::clicked, this, &MainWindow::openFileForViewer2);
+    connect(ui->openButton1, &QPushButton::clicked, this, [=]() {openFileForViewer(1);});
+    connect(ui->openButton2, &QPushButton::clicked, this, [=]() {openFileForViewer(2);});
     connect(ui->pointSizeSlider1, &QSlider::valueChanged, this, &MainWindow::onSlider1ValueChanged);
     connect(ui->pointSizeSlider2, &QSlider::valueChanged, this, &MainWindow::onSlider2ValueChanged);
 
@@ -86,6 +89,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     viewer1->setShowFPS(0);
     viewer2->setShowFPS(0);
+    viewer1->setBackgroundColor(backgroundColor.red(), backgroundColor.green(), backgroundColor.blue());
+    viewer2->setBackgroundColor(backgroundColor.red(), backgroundColor.green(), backgroundColor.blue());
 
     // ChartView
     chartView = new QChartView();
@@ -100,9 +105,10 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     // Populate the ColorFormatBox
-    ui->colorFormatBox->addItem("White");
+
+    ui->colorFormatBox->addItem("Default");
     ui->colorFormatBox->addItem("RGB");
-    ui->colorFormatBox->addItem("Black");
+    ui->colorFormatBox->addItem("White");
 
 
 
@@ -142,25 +148,11 @@ MainWindow::MainWindow(QWidget *parent)
         mouseCallback(event, 2);
     });
 
-    //connect(viewer2, MouseEvent::MouseButtonRelease, this, [=](){onCameraChanged(2);});
-
-    connect(ui->writeButton, &QPushButton::clicked, this, [=]() {
-        Camera cam;
-        viewer1->getCameraParameters(cam);
-        vector<Camera> cameras;
-        viewer1->getCameras(cameras);
-        for (Camera c : cameras)
-            printCamera(cam);
-    });
-}
-
-void MainWindow::printCamera(const Camera& camera) {
-    qDebug() << "Camera Position:" << camera.pos[0] << camera.pos[1] << camera.pos[2];
-    qDebug() << "Focal Point:" << camera.focal[0] << camera.focal[1] << camera.focal[2];
-    qDebug() << "View Up:" << camera.view[0] << camera.view[1] << camera.view[2];
-    qDebug() << "Clipping Planes:" << camera.clip[0] << camera.clip[1];
-    qDebug() << "Field of View:" << camera.fovy;
-    qDebug() << "------------";
+/*
+    rangeSlider = new RangeSlider(Qt::Horizontal, RangeSlider::Option::DoubleHandles, nullptr);
+    ui->histogramPlace->addWidget(rangeSlider);
+    connect(rangeSlider, &RangeSlider::rangeChanged, this, [=]() {colorizeHandler();});
+*/
 }
 
 MainWindow::~MainWindow()
@@ -186,54 +178,36 @@ vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b)
     return distances;
 }
 
-QColor MainWindow::calculateColor(float color_factor) {
-    QColor color;
+// ########################################################################
+// ################### Distances ##########################################
+// ########################################################################
 
-    QString format = ui->colorFormatBox->currentText();
-    if (!ui->colorFormatBox->isEnabled()) format = "White";
+void MainWindow::onCalculate() {
+    // Check if the cloud data is loaded and valid
+    if (!cloud1 || !cloud2) {
+        QMessageBox::warning(this, "Error", "Please load both point clouds first.");
+        return;
+    }
 
-    if (format == "RGB") {
-        if (color_factor <= 0.25f) {
-            // Red to Yellow
-            color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
-        } else if (color_factor <= 0.5f) {
-            // Yellow to Green
-            color.setRgb(static_cast<int>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)), 255, 0);
-        } else if (color_factor <= 0.75f) {
-            // Green to Cyan
-            color.setRgb(0, 255, static_cast<int>(255 * ((color_factor - 0.5f) / 0.25f)));
-        } else {
-            // Cyan to Blue
-            color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
+    double distance = -1;
+    if (ui->hausdorffRadioButton->isChecked()) {
+        distance = hausdorffDistance(cloud1, cloud2);
+        QMessageBox::information(this, "Hausdorff Distance", QString::number(distance));
+    } else if (ui->chamferRadioButton->isChecked()) {
+        distance = chamferDistance(cloud1, cloud2);
+        QMessageBox::information(this, "Chamfer Distance", QString::number(distance));
+    } else if (ui->earthMoversRadioButton->isChecked()) {
+        distance = earthMoversDistance(cloud1, cloud2);
+        QMessageBox::information(this, "Earth Mover's Distance", QString::number(distance));
+    } else if (ui->jensenShannonRadioButton->isChecked()) {
+        if (cloud1->size() != cloud2->size()) {
+            QMessageBox::warning(this, "Error", "To calculate Jensen-Shannon Divergence, both point clouds must have same number of points.");
+            return;
         }
-    }
-    else if (format == "White") {
-        color.setRgb(255,255,255);
-    }
-
-    return color;
-}
-
-void MainWindow::colorizePoint(PointT &point, float distance, float max_distance, float min_distance) {
-    // Normalize the distance for coloring (assuming max distance is a threshold)
-    float color_factor;
-    if (max_distance - min_distance == 0)
-        color_factor = 0;
-    else
-        color_factor = (distance - min_distance) / (max_distance - min_distance);
-
-    QColor color = calculateColor(color_factor);
-    point.r = color.red();
-    point.g = color.green();
-    point.b = color.blue();
-}
-
-void MainWindow::colorizeCloud(PointCloudT::Ptr &cloud, const vector<float>& distances){
-    double max_dist = *max_element(distances.begin(), distances.end());
-    double min_dist = *min_element(distances.begin(), distances.end());
-    for (size_t i = 0; i < cloud->points.size(); ++i) {
-        auto &point = cloud->points[i];
-        colorizePoint(point, distances[i], max_dist, min_dist);
+        distance = jensenShannonDivergence(cloud1, cloud2);
+        QMessageBox::information(this, "Jensen-Shannon Divergence", QString::number(distance));
+    } else {
+        QMessageBox::warning(this, "Error", "Please select a distance metric.");
     }
 }
 
@@ -259,8 +233,34 @@ double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &
 }
 
 double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
-    // compare A to B
-    return 0;
+    // Convert point clouds to OpenCV Mat with weights
+    cv::Mat signature1(cloud_a->size(), 4, CV_32F); // [weight, x, y, z]
+    cv::Mat signature2(cloud_b->size(), 4, CV_32F); // [weight, x, y, z]
+
+    // Fill in the data for signature1
+    for (size_t i = 0; i < cloud_a->size(); ++i) {
+        signature1.at<float>(i, 0) = 1.0f; // Uniform weight
+        signature1.at<float>(i, 1) = cloud_a->points[i].x;
+        signature1.at<float>(i, 2) = cloud_a->points[i].y;
+        signature1.at<float>(i, 3) = cloud_a->points[i].z;
+    }
+
+    // Fill in the data for signature2
+    for (size_t i = 0; i < cloud_b->size(); ++i) {
+        signature2.at<float>(i, 0) = 1.0f; // Uniform weight
+        signature2.at<float>(i, 1) = cloud_b->points[i].x;
+        signature2.at<float>(i, 2) = cloud_b->points[i].y;
+        signature2.at<float>(i, 3) = cloud_b->points[i].z;
+    }
+
+    // Normalize weights (optional, but ensures consistent results)
+    signature1.col(0) /= cv::sum(signature1.col(0))[0];
+    signature2.col(0) /= cv::sum(signature2.col(0))[0];
+
+    // Calculate EMD
+    float emd = cv::EMD(signature1, signature2, cv::DIST_L2);
+
+    return static_cast<double>(emd);
 }
 
 // Function to calculate Kullback-Leibler divergence
@@ -300,9 +300,11 @@ vector<double> normalizeDistribution(const vector<float> &distances) {
         sum += dist;
     }
 
-    // Normalize each distance to form a probability distribution
-    for (size_t i = 0; i < distances.size(); ++i) {
-        distribution[i] = static_cast<double>(distances[i]) / sum;
+    if (sum != 0) {
+        // Normalize each distance to form a probability distribution
+        for (size_t i = 0; i < distances.size(); ++i) {
+            distribution[i] = static_cast<double>(distances[i]) / sum;
+        }
     }
 
     return distribution;
@@ -310,6 +312,9 @@ vector<double> normalizeDistribution(const vector<float> &distances) {
 
 // Function to calculate Jensen-Shannon divergence
 double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+
+    if (cloud_a->size() != cloud_b->size()) return -1;
+
     // Compare cloud A to B
     vector<float> distances_a = getDistances(cloud_a, cloud_b);
     vector<float> distances_b = getDistances(cloud_b, cloud_a);
@@ -323,6 +328,106 @@ double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloud
 
     return jsd;
 }
+
+
+// ########################################################################
+// #################### Colorize ##########################################
+// ########################################################################
+
+void MainWindow::colorizeHandler() {
+    bool cloudsLoaded = (cloud1 != nullptr && cloud2 != nullptr); // Check if both clouds are loaded
+
+    // Enable or disable colorizeButton and colorFormatBox based on whether both clouds are loaded
+    ui->colorFormatBox->setEnabled(cloudsLoaded); // Only enable colorFormatBox if colorizeButton is checked and clouds are loaded
+    //rangeSlider->setEnabled(cloudsLoaded);
+
+    if (cloudsLoaded) {
+        vector<float> distances = getDistances(cloud1, cloud2);
+        showHistogram(distances);
+        colorizeCloud(cloud1, distances);
+    } else {
+        // If one or both clouds are missing, ensure colorizeButton and colorFormatBox are disabled
+        //ui->colorizeButton->setChecked(false);
+        resetHistogram(); // Reset the chart
+        if (cloud1 != nullptr) {
+            colorizeCloud(cloud1, vector<float>(cloud1->size()));
+        }
+    }
+    updateViewer(1);
+    updateViewer(2);
+}
+
+
+QColor MainWindow::calculateColor(float factor) {
+    QColor color;
+    float color_factor = factor;
+/*
+    // Fetch the min and max values from the range slider
+    int minThreshold = rangeSlider->GetLowerValue();
+    int maxThreshold = rangeSlider->GetUpperValue();
+
+    if (factor < minThreshold) {
+        color_factor = 0.0f;  // Everything below the minimum is 0
+    } else if (factor > maxThreshold) {
+        color_factor = 1.0f;  // Everything above the maximum is 1
+    } else {
+        // Normalize within the range [minThreshold, maxThreshold]
+        color_factor = (factor - minThreshold) / (maxThreshold - minThreshold);
+    }
+*/
+    QString format = ui->colorFormatBox->currentText();
+    if (!ui->colorFormatBox->isEnabled()) format = "Default";
+
+    if (format == "RGB") {
+        if (color_factor <= 0.25f) {
+            // Red to Yellow
+            color.setRgb(255, static_cast<int>(255 * (color_factor / 0.25f)), 0);
+        } else if (color_factor <= 0.5f) {
+            // Yellow to Green
+            color.setRgb(static_cast<int>(255 * (1.0f - (color_factor - 0.25f) / 0.25f)), 255, 0);
+        } else if (color_factor <= 0.75f) {
+            // Green to Cyan
+            color.setRgb(0, 255, static_cast<int>(255 * ((color_factor - 0.5f) / 0.25f)));
+        } else {
+            // Cyan to Blue
+            color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
+        }
+    }
+    else if (format == "White") {
+        color.setRgb(255,255,255);
+    }
+    else if (format == "Default") {
+        color = defaultColor;
+    }
+
+    return color;
+}
+
+void MainWindow::colorizePoint(PointT &point, float distance, float max_distance, float min_distance) {
+    // Normalize the distance for coloring (assuming max distance is a threshold)
+    float color_factor;
+    if (max_distance - min_distance == 0)
+        color_factor = 0;
+    else
+        color_factor = (distance - min_distance) / (max_distance - min_distance);
+
+    QColor color = calculateColor(color_factor);
+    point.r = color.red();
+    point.g = color.green();
+    point.b = color.blue();
+}
+
+void MainWindow::colorizeCloud(PointCloudT::Ptr &cloud, const vector<float>& distances){
+    double max_dist = *max_element(distances.begin(), distances.end());
+    double min_dist = *min_element(distances.begin(), distances.end());
+    for (size_t i = 0; i < cloud->points.size(); ++i) {
+        auto &point = cloud->points[i];
+        colorizePoint(point, distances[i], max_dist, min_dist);
+    }
+}
+
+
+
 
 // Function to create histogram data
 QBarSeries* MainWindow::createHistogramSeries(const std::vector<float>& distances, int numBins) {
@@ -357,6 +462,23 @@ QBarSeries* MainWindow::createHistogramSeries(const std::vector<float>& distance
     return series;
 }
 
+void MainWindow::resetHistogram() {
+    QChart *chart = chartView->chart();
+
+    chart->removeAllSeries();
+    chart->setBackgroundBrush(Qt::NoBrush); // Transparent background
+    chart->setPlotAreaBackgroundVisible(false); // No background in the plot area
+    chart->legend()->hide(); // Hide the legend
+    chart->setTitle("Histogram");
+
+    if (!chart->axes(Qt::Horizontal).empty()) chart->removeAxis(chart->axes(Qt::Horizontal).first());
+    QValueAxis* axisX = new QValueAxis();
+    axisX->setRange(0, 10);
+    axisX->setTickCount(11);
+    axisX->setGridLineVisible(false);
+    chart->addAxis(axisX, Qt::AlignBottom);
+}
+
 void MainWindow::showHistogram(const std::vector<float>& distances) {
     int numBins = 100; // Set the number of bins to 50 for more granularity
 
@@ -378,7 +500,7 @@ void MainWindow::showHistogram(const std::vector<float>& distances) {
     // Configure the x-axis to have 10 evenly spaced labels
     QValueAxis* axisX = new QValueAxis();
     axisX->setRange(minDist, maxDist);
-    axisX->setTickCount(10);
+    axisX->setTickCount(11);
     axisX->setGridLineVisible(false);
     chart->removeAxis(chart->axes(Qt::Horizontal).first());
     chart->addAxis(axisX, Qt::AlignBottom);
@@ -391,70 +513,10 @@ void MainWindow::showHistogram(const std::vector<float>& distances) {
     series->attachAxis(axisY);*/
 }
 
-void MainWindow::onCalculate() {
-    // Check if the cloud data is loaded and valid
-    if (!cloud1 || !cloud2) {
-        QMessageBox::warning(this, "Error", "Please load both point clouds first.");
-        return;
-    }
 
-    double distance = -1;
-    if (ui->hausdorffRadioButton->isChecked()) {
-        distance = hausdorffDistance(cloud1, cloud2);
-        QMessageBox::information(this, "Hausdorff Distance", QString::number(distance));
-    } else if (ui->chamferRadioButton->isChecked()) {
-        distance = chamferDistance(cloud1, cloud2);
-        QMessageBox::information(this, "Chamfer Distance", QString::number(distance));
-    } else if (ui->earthMoversRadioButton->isChecked()) {
-        distance = earthMoversDistance(cloud1, cloud2);
-        QMessageBox::information(this, "Earth Mover's Distance", QString::number(distance));
-    } else if (ui->jensenShannonRadioButton->isChecked()) {
-        distance = jensenShannonDivergence(cloud1, cloud2);
-        QMessageBox::information(this, "Jenses-Shannon Divergence", QString::number(distance));
-    } else {
-        QMessageBox::warning(this, "Error", "Please select a distance metric.");
-    }
-}
-
-void MainWindow::colorizeHandler() {
-    bool cloudsLoaded = (cloud1 != nullptr && cloud2 != nullptr); // Check if both clouds are loaded
-
-    // Enable or disable colorizeButton and colorFormatBox based on whether both clouds are loaded
-    ui->colorFormatBox->setEnabled(cloudsLoaded); // Only enable colorFormatBox if colorizeButton is checked and clouds are loaded
-
-    if (cloudsLoaded) {
-        vector<float> distances = getDistances(cloud1, cloud2);
-        showHistogram(distances);
-        colorizeCloud(cloud1, distances);
-    } else {
-        // If one or both clouds are missing, ensure colorizeButton and colorFormatBox are disabled
-        //ui->colorizeButton->setChecked(false);
-        resetHistogram(); // Reset the chart
-        if (cloud1 != nullptr) {
-            colorizeCloud(cloud1, vector<float>(cloud1->size()));
-        }
-    }
-    updateViewer(1);
-    updateViewer(2);
-}
-
-
-void MainWindow::resetHistogram() {
-    QChart *chart = chartView->chart();
-
-    chart->removeAllSeries();
-    chart->setBackgroundBrush(Qt::NoBrush); // Transparent background
-    chart->setPlotAreaBackgroundVisible(false); // No background in the plot area
-    chart->legend()->hide(); // Hide the legend
-    chart->setTitle("Histogram");
-
-    if (!chart->axes(Qt::Horizontal).empty()) chart->removeAxis(chart->axes(Qt::Horizontal).first());
-    QValueAxis* axisX = new QValueAxis();
-    axisX->setRange(0, 10);
-    axisX->setTickCount(10);
-    axisX->setGridLineVisible(false);
-    chart->addAxis(axisX, Qt::AlignBottom);
-}
+// ########################################################################
+// ################### Point Cloud Handler ################################
+// ########################################################################
 
 void MainWindow::updateViewer(int id) {
     if (id == 1) {
@@ -477,20 +539,11 @@ void MainWindow::updateViewer(int id) {
     }
 }
 
-void MainWindow::openFileForViewer1()
+void MainWindow::openFileForViewer(int id)
 {
-    cloud1 = openFile();
-
-    if (cloud1) {
-        colorizeHandler();
-    }
-}
-
-void MainWindow::openFileForViewer2()
-{
-    cloud2 = openFile();
-
-    if (cloud2) {
+    PointCloudT::Ptr loaded_cloud = openFile();
+    if (loaded_cloud != nullptr) {
+        id == 1 ? cloud1 = loaded_cloud : cloud2 = loaded_cloud;
         colorizeHandler();
     }
 }
@@ -576,9 +629,9 @@ PointCloudT::Ptr MainWindow::transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr
         p.x = cloud_xyz->points[i].x;
         p.y = cloud_xyz->points[i].y;
         p.z = cloud_xyz->points[i].z;
-        p.r = 255; // Default color value
-        p.g = 255;
-        p.b = 255;
+        p.r = defaultColor.red(); // Default color value
+        p.g = defaultColor.green();
+        p.b = defaultColor.blue();
         p.a = 255;
         transformed_cloud->points[i] = p;
     }
@@ -601,7 +654,9 @@ void MainWindow::onSlider2ValueChanged(double value)
 
 
 
-
+// ########################################################################
+// ####################### Views ##########################################
+// ########################################################################
 
 void MainWindow::saveCurrentView(int id) {
     Camera camera;
@@ -743,7 +798,7 @@ void MainWindow::updateComboBoxes(int showIndex1, int showIndex2) {
 void MainWindow::applyViewToViewer(int id, int index) {
     if (index >= 0 && index < cameraViews.size()) {
         pcl::visualization::PCLVisualizer::Ptr viewer = (id == 1) ? viewer1 : viewer2;
-        QSlider* pointSizeSlider = (id == 1) ? ui->pointSizeSlider1 : ui->pointSizeSlider2;
+        //QSlider* pointSizeSlider = (id == 1) ? ui->pointSizeSlider1 : ui->pointSizeSlider2;
         QComboBox* activeComboBox = (id == 1) ? ui->cameraViewComboBox1 : ui->cameraViewComboBox2;;
 
         // Remove "[Custom]" if it exists
@@ -763,7 +818,7 @@ void MainWindow::applyViewToViewer(int id, int index) {
         viewer->getRenderWindow()->SetSize(originalWidth, originalHeight);
 
         // Update point size slider
-        pointSizeSlider->setValue(cameraViews[index].pointSize * 10.0);
+        //pointSizeSlider->setValue(cameraViews[index].pointSize * 10.0);
 
         // Trigger a re-render for the selected viewer
         updateViewer(id);
@@ -785,7 +840,6 @@ void MainWindow::onCameraChanged(int id) {
     comboBox->setCurrentIndex(customIndex);
 }
 
-
 // Mouse callback function
 void MainWindow::mouseCallback(const MouseEvent& event, int viewerID) {
     // Check if the mouse button was released
@@ -795,4 +849,31 @@ void MainWindow::mouseCallback(const MouseEvent& event, int viewerID) {
             onCameraChanged(viewerID);
         }
     }
+}
+
+
+void MainWindow::on_exportButton_clicked() {
+    // Open file save dialog
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Export Snapshot",
+        "snapshot000.png",
+        "PNG File (*.png);;All Files (*)"
+        );
+
+    if (filePath.isEmpty()) {
+        return; // User canceled the dialog
+    }
+
+    // Append .png if no extension is provided
+    QFileInfo fileInfo(filePath);
+    if (fileInfo.suffix().isEmpty()) {
+        filePath += ".png";
+    }
+
+    // Export PNG
+    viewer1->saveScreenshot(filePath.toStdString());
+
+
+    QMessageBox::information(this, "Success", "Snapshot exported successfully!");
 }

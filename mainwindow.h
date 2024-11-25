@@ -10,6 +10,7 @@
 #include <QtCharts/QChartView>
 #include <QtCharts/QBarSeries>
 #include <QComboBox>
+#include "RangeSlider.h"
 
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -38,8 +39,7 @@ private slots:
     PointCloudT::Ptr openFile();
     PointCloudT::Ptr transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz);
     void updateViewer(int id);
-    void openFileForViewer1();
-    void openFileForViewer2();
+    void openFileForViewer(int id);
     void onSlider1ValueChanged(double value);
     void onSlider2ValueChanged(double value);
 
@@ -65,12 +65,14 @@ private slots:
     void onCameraChanged(int id);
     void mouseCallback(const pcl::visualization::MouseEvent& event, int viewerID);
 
-    void printCamera(const pcl::visualization::Camera& camera);
+    void on_exportButton_clicked();
 
 
 private:
-    double pointSize1 = 1;
-    double pointSize2 = 3;
+    double pointSize1 = 5;
+    double pointSize2 = 5;
+    QColor backgroundColor = QColor(255,255,255);
+    QColor defaultColor = QColor(0,0,0);
 
 protected:
     PointCloudT::Ptr cloud1;
@@ -81,6 +83,8 @@ protected:
 
     QChartView* chartView;
     QVector<CameraView> cameraViews;
+
+    RangeSlider *rangeSlider;
 
 private:
     Ui::MainWindow *ui;

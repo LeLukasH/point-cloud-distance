@@ -105,10 +105,10 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     // Populate the ColorFormatBox
-
-    ui->colorFormatBox->addItem("Default");
-    ui->colorFormatBox->addItem("RGB");
-    ui->colorFormatBox->addItem("White");
+    QString colorFormats[] = {"Default", "RGB", "White", "Grayscale", "CMYK", "Heatmap", "Pastel", "Rainbow"};
+    for (const auto& format : colorFormats) {
+        ui->colorFormatBox->addItem(format);
+    }
 
 
 
@@ -148,11 +148,16 @@ MainWindow::MainWindow(QWidget *parent)
         mouseCallback(event, 2);
     });
 
-/*
+
     rangeSlider = new RangeSlider(Qt::Horizontal, RangeSlider::Option::DoubleHandles, nullptr);
-    ui->histogramPlace->addWidget(rangeSlider);
-    connect(rangeSlider, &RangeSlider::rangeChanged, this, [=]() {colorizeHandler();});
-*/
+    rangeSlider->SetRange(0,100);
+    QHBoxLayout *rangeSliderLayout = new QHBoxLayout();
+    rangeSliderLayout->setContentsMargins(35, 0, 35, 0); // 20px left and right, no top or bottom margins
+    rangeSliderLayout->addWidget(rangeSlider);
+    ui->histogramPlace->addLayout(rangeSliderLayout);
+    connect(rangeSlider, &RangeSlider::lowerValueChanged, this, [=]() {colorizeHandler();});
+    connect(rangeSlider, &RangeSlider::upperValueChanged, this, [=]() {colorizeHandler();});
+
 }
 
 MainWindow::~MainWindow()
@@ -361,10 +366,10 @@ void MainWindow::colorizeHandler() {
 QColor MainWindow::calculateColor(float factor) {
     QColor color;
     float color_factor = factor;
-/*
+
     // Fetch the min and max values from the range slider
-    int minThreshold = rangeSlider->GetLowerValue();
-    int maxThreshold = rangeSlider->GetUpperValue();
+    float minThreshold = rangeSlider->GetLowerValue() / 100.0f;
+    float maxThreshold = rangeSlider->GetUpperValue() / 100.0f;
 
     if (factor < minThreshold) {
         color_factor = 0.0f;  // Everything below the minimum is 0
@@ -374,7 +379,7 @@ QColor MainWindow::calculateColor(float factor) {
         // Normalize within the range [minThreshold, maxThreshold]
         color_factor = (factor - minThreshold) / (maxThreshold - minThreshold);
     }
-*/
+
     QString format = ui->colorFormatBox->currentText();
     if (!ui->colorFormatBox->isEnabled()) format = "Default";
 
@@ -392,6 +397,36 @@ QColor MainWindow::calculateColor(float factor) {
             // Cyan to Blue
             color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
         }
+    }
+    else if (format == "Grayscale") {
+        // Grayscale: Black (0) to White (1)
+        int gray = static_cast<int>(255 * color_factor);
+        color.setRgb(gray, gray, gray);
+    }
+    else if (format == "CMYK") {
+        // CMYK color space transformation (approximation)
+        float c = 1 - color_factor;
+        float m = color_factor * 0.75f;
+        float y = 0.5f * (1 - color_factor);
+        float k = 0.2f;
+
+        int r = static_cast<int>((1 - c) * (1 - k) * 255);
+        int g = static_cast<int>((1 - m) * (1 - k) * 255);
+        int b = static_cast<int>((1 - y) * (1 - k) * 255);
+        color.setRgb(r, g, b);
+    }
+    else if (format == "Heatmap") {
+        // Heatmap: Blue (0) to Red (1)
+        color.setRgb(static_cast<int>(255 * color_factor), 0, static_cast<int>(255 * (1 - color_factor)));
+    }
+    else if (format == "Pastel") {
+        // Pastel tones for a softer gradient
+        color.setRgb(255, static_cast<int>(200 + 55 * color_factor), static_cast<int>(200 + 55 * (1 - color_factor)));
+    }
+    else if (format == "Rainbow") {
+        // Rainbow: full spectrum using HSV
+        int hue = static_cast<int>(color_factor * 360);
+        color.setHsv(hue, 255, 255);
     }
     else if (format == "White") {
         color.setRgb(255,255,255);

@@ -37,7 +37,7 @@ RangeSlider::RangeSlider(Qt::Orientation ori, Options t, QWidget* aParent)
       mFirstHandlePressed(false),
       mSecondHandlePressed(false),
       mInterval(mMaximum - mMinimum),
-      mBackgroudColorEnabled(QColor(0x1E, 0x90, 0xFF)),
+      mBackgroudColorEnabled(QColor(80,80,80)),
       mBackgroudColorDisabled(Qt::darkGray),
       mBackgroudColor(mBackgroudColorEnabled),
       orientation(ori),

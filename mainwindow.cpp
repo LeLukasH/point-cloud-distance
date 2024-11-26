@@ -105,7 +105,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     // Populate the ColorFormatBox
-    QString colorFormats[] = {"Default", "RGB", "White", "Grayscale", "CMYK", "Heatmap", "Pastel", "Rainbow"};
+    QString colorFormats[] = {"RGB", "Yellow-Red", "Grayscale", "CMYK", "Heatmap", "Pastel", "Rainbow", "Default"};
     for (const auto& format : colorFormats) {
         ui->colorFormatBox->addItem(format);
     }
@@ -158,6 +158,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(rangeSlider, &RangeSlider::lowerValueChanged, this, [=]() {colorizeHandler();});
     connect(rangeSlider, &RangeSlider::upperValueChanged, this, [=]() {colorizeHandler();});
 
+    connect(ui->cleanLogButton, &QPushButton::clicked, this, &MainWindow::clearLog);
+
 }
 
 MainWindow::~MainWindow()
@@ -194,38 +196,43 @@ void MainWindow::onCalculate() {
         return;
     }
 
-    double distance = -1;
+    QString logMessage;
     if (ui->hausdorffRadioButton->isChecked()) {
-        distance = hausdorffDistance(cloud1, cloud2);
-        QMessageBox::information(this, "Hausdorff Distance", QString::number(distance));
+        logMessage = computeHausdorffDistance(cloud1, cloud2);
     } else if (ui->chamferRadioButton->isChecked()) {
-        distance = chamferDistance(cloud1, cloud2);
-        QMessageBox::information(this, "Chamfer Distance", QString::number(distance));
+        logMessage = computeChamferDistance(cloud1, cloud2);
     } else if (ui->earthMoversRadioButton->isChecked()) {
-        distance = earthMoversDistance(cloud1, cloud2);
-        QMessageBox::information(this, "Earth Mover's Distance", QString::number(distance));
+        logMessage = computeEarthMoversDistance(cloud1, cloud2);
     } else if (ui->jensenShannonRadioButton->isChecked()) {
         if (cloud1->size() != cloud2->size()) {
-            QMessageBox::warning(this, "Error", "To calculate Jensen-Shannon Divergence, both point clouds must have same number of points.");
+            QMessageBox::warning(this, "Error", "To calculate Jensen-Shannon Divergence, both point clouds must have the same number of points.");
             return;
         }
-        distance = jensenShannonDivergence(cloud1, cloud2);
-        QMessageBox::information(this, "Jensen-Shannon Divergence", QString::number(distance));
+        logMessage = computeJensenShannonDivergence(cloud1, cloud2);
     } else {
         QMessageBox::warning(this, "Error", "Please select a distance metric.");
+        return;
     }
+
+    // Append log message to logField
+    ui->logField->append(logMessage);
 }
 
-double MainWindow::hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+QString MainWindow::computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // compare A to B
     vector<float> distances = getDistances(cloud_a, cloud_b);
 
     double max_dist = *max_element(distances.begin(), distances.end());
 
-    return max_dist;
+    return QString(
+               "Hausdorff Distance computed\n"
+               "\n"
+               "value : %1\n")
+        .arg(max_dist);
 }
 
-double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+
+QString MainWindow::computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // compare A to B
     vector<float> distances = getDistances(cloud_a, cloud_b);
 
@@ -234,10 +241,14 @@ double MainWindow::chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &
         sum += distances[i] * distances[i];
     }
 
-    return sum / cloud_a->points.size();
+    return QString(
+               "Chamfer Distance computed\n"
+               "\n"
+               "value : %1\n")
+        .arg(sum / cloud_a->points.size());
 }
 
-double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+QString MainWindow::computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // Convert point clouds to OpenCV Mat with weights
     cv::Mat signature1(cloud_a->size(), 4, CV_32F); // [weight, x, y, z]
     cv::Mat signature2(cloud_b->size(), 4, CV_32F); // [weight, x, y, z]
@@ -265,7 +276,11 @@ double MainWindow::earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::P
     // Calculate EMD
     float emd = cv::EMD(signature1, signature2, cv::DIST_L2);
 
-    return static_cast<double>(emd);
+    return QString(
+               "Earth Mover's Distance computed\n"
+               "\n"
+               "value : %1\n")
+        .arg(static_cast<double>(emd));
 }
 
 // Function to calculate Kullback-Leibler divergence
@@ -316,9 +331,9 @@ vector<double> normalizeDistribution(const vector<float> &distances) {
 }
 
 // Function to calculate Jensen-Shannon divergence
-double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+QString MainWindow::computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
 
-    if (cloud_a->size() != cloud_b->size()) return -1;
+    if (cloud_a->size() != cloud_b->size()) return QString("Point clouds do not have the same number of points.");
 
     // Compare cloud A to B
     vector<float> distances_a = getDistances(cloud_a, cloud_b);
@@ -331,7 +346,11 @@ double MainWindow::jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloud
     // Calculate the Jensen-Shannon Divergence
     double jsd = jensenShannonDivergenceFromDistributions(P, Q);
 
-    return jsd;
+    return QString(
+               "Jensen-Shannon Divergence computed\n"
+               "\n"
+               "value : %1\n")
+        .arg(jsd);
 }
 
 
@@ -368,7 +387,7 @@ QColor MainWindow::calculateColor(float factor) {
     float color_factor = factor;
 
     // Fetch the min and max values from the range slider
-    float minThreshold = rangeSlider->GetLowerValue() / 100.0f;
+    float minThreshold = (rangeSlider->GetLowerValue() - 1) / 100.0f;
     float maxThreshold = rangeSlider->GetUpperValue() / 100.0f;
 
     if (factor < minThreshold) {
@@ -397,6 +416,10 @@ QColor MainWindow::calculateColor(float factor) {
             // Cyan to Blue
             color.setRgb(0, static_cast<int>(255 * (1.0f - (color_factor - 0.75f) / 0.25f)), 255);
         }
+    }
+    else if (format == "Yellow-Red") {
+        // Yellow to Red gradient
+        color.setRgb(255, static_cast<int>(255 * (1.0f - color_factor)), 0);
     }
     else if (format == "Grayscale") {
         // Grayscale: Black (0) to White (1)
@@ -911,4 +934,8 @@ void MainWindow::on_exportButton_clicked() {
 
 
     QMessageBox::information(this, "Success", "Snapshot exported successfully!");
+}
+
+void MainWindow::clearLog() {
+    ui->logField->clear(); // Clears the text in the logField
 }

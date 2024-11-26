@@ -470,7 +470,7 @@
      </layout>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,4,0,0,0,0">
+     <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,0,4,0,0,0,0,0">
       <item>
        <layout class="QVBoxLayout" name="histogramPlace">
         <property name="spacing">
@@ -486,6 +486,29 @@
         <property name="spacing">
          <number>12</number>
         </property>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,2">
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>80</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Color Format:</string>
+          </property>
+         </widget>
+        </item>
         <item>
          <widget class="QComboBox" name="colorFormatBox"/>
         </item>
@@ -588,6 +611,20 @@
        </widget>
       </item>
       <item>
+       <widget class="QTextEdit" name="logField">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="cleanLogButton">
+        <property name="text">
+         <string>Clean Log</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="verticalSpacer">
         <property name="orientation">
          <enum>Qt::Orientation::Vertical</enum>
@@ -599,13 +636,6 @@
          </size>
         </property>
        </spacer>
-      </item>
-      <item>
-       <widget class="QPushButton" name="writeButton">
-        <property name="text">
-         <string>PushButton</string>
-        </property>
-       </widget>
       </item>
       <item>
        <widget class="QPushButton" name="exportButton">

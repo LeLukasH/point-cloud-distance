@@ -44,10 +44,10 @@ private slots:
     void onSlider2ValueChanged(double value);
 
     void onCalculate();
-    double hausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    double chamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    double earthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    double jensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
 
     void showHistogram(const std::vector<float>& distances);
     QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBins);
@@ -66,6 +66,7 @@ private slots:
     void mouseCallback(const pcl::visualization::MouseEvent& event, int viewerID);
 
     void on_exportButton_clicked();
+    void clearLog();
 
 
 private:

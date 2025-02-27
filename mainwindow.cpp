@@ -6,6 +6,7 @@
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/obj_io.h>
+#include <pcl/io/ply_io.h>
 #include <pcl/console/print.h>
 #include <pcl/console/parse.h>
 #include <pcl/console/time.h>
@@ -24,6 +25,8 @@
 #include <QListWidget>
 #include <QInputDialog>
 #include <QStandardItemModel>
+
+#include "compute.h"
 
 
 
@@ -167,28 +170,6 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
-    pcl::search::KdTree<PointT> tree_b;
-    tree_b.setInputCloud (cloud_b);
-    vector<float> distances(cloud_a->points.size());
-    for (size_t i = 0; i < cloud_a->points.size(); ++i) {
-        auto &point = cloud_a->points[i];
-        pcl::Indices indices(1); // To store index of the nearest point
-        vector<float> sqr_distances(1); // To store squared distance of the nearest point
-
-        // Perform nearest neighbor search
-        tree_b.nearestKSearch(point, 1, indices, sqr_distances);
-
-        // Calculate the distance
-        distances[i] = sqrt(sqr_distances[0]);
-    }
-    return distances;
-}
-
-// ########################################################################
-// ################### Distances ##########################################
-// ########################################################################
-
 void MainWindow::onCalculate() {
     // Check if the cloud data is loaded and valid
     if (!cloud1 || !cloud2) {
@@ -198,17 +179,17 @@ void MainWindow::onCalculate() {
 
     QString logMessage;
     if (ui->hausdorffRadioButton->isChecked()) {
-        logMessage = computeHausdorffDistance(cloud1, cloud2);
+        logMessage = Compute::computeHausdorffDistance(cloud1, cloud2);
     } else if (ui->chamferRadioButton->isChecked()) {
-        logMessage = computeChamferDistance(cloud1, cloud2);
+        logMessage = Compute::computeChamferDistance(cloud1, cloud2);
     } else if (ui->earthMoversRadioButton->isChecked()) {
-        logMessage = computeEarthMoversDistance(cloud1, cloud2);
+        logMessage = Compute::computeEarthMoversDistance(cloud1, cloud2);
     } else if (ui->jensenShannonRadioButton->isChecked()) {
         if (cloud1->size() != cloud2->size()) {
             QMessageBox::warning(this, "Error", "To calculate Jensen-Shannon Divergence, both point clouds must have the same number of points.");
             return;
         }
-        logMessage = computeJensenShannonDivergence(cloud1, cloud2);
+        logMessage = Compute::computeJensenShannonDivergence(cloud1, cloud2);
     } else {
         QMessageBox::warning(this, "Error", "Please select a distance metric.");
         return;
@@ -216,141 +197,6 @@ void MainWindow::onCalculate() {
 
     // Append log message to logField
     ui->logField->append(logMessage);
-}
-
-QString MainWindow::computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
-    // compare A to B
-    vector<float> distances = getDistances(cloud_a, cloud_b);
-
-    double max_dist = *max_element(distances.begin(), distances.end());
-
-    return QString(
-               "Hausdorff Distance computed\n"
-               "\n"
-               "value : %1\n")
-        .arg(max_dist);
-}
-
-
-QString MainWindow::computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
-    // compare A to B
-    vector<float> distances = getDistances(cloud_a, cloud_b);
-
-    double sum = 0;
-    for (size_t i = 0; i < distances.size(); i++) {
-        sum += distances[i] * distances[i];
-    }
-
-    return QString(
-               "Chamfer Distance computed\n"
-               "\n"
-               "value : %1\n")
-        .arg(sum / cloud_a->points.size());
-}
-
-QString MainWindow::computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
-    // Convert point clouds to OpenCV Mat with weights
-    cv::Mat signature1(cloud_a->size(), 4, CV_32F); // [weight, x, y, z]
-    cv::Mat signature2(cloud_b->size(), 4, CV_32F); // [weight, x, y, z]
-
-    // Fill in the data for signature1
-    for (size_t i = 0; i < cloud_a->size(); ++i) {
-        signature1.at<float>(i, 0) = 1.0f; // Uniform weight
-        signature1.at<float>(i, 1) = cloud_a->points[i].x;
-        signature1.at<float>(i, 2) = cloud_a->points[i].y;
-        signature1.at<float>(i, 3) = cloud_a->points[i].z;
-    }
-
-    // Fill in the data for signature2
-    for (size_t i = 0; i < cloud_b->size(); ++i) {
-        signature2.at<float>(i, 0) = 1.0f; // Uniform weight
-        signature2.at<float>(i, 1) = cloud_b->points[i].x;
-        signature2.at<float>(i, 2) = cloud_b->points[i].y;
-        signature2.at<float>(i, 3) = cloud_b->points[i].z;
-    }
-
-    // Normalize weights (optional, but ensures consistent results)
-    signature1.col(0) /= cv::sum(signature1.col(0))[0];
-    signature2.col(0) /= cv::sum(signature2.col(0))[0];
-
-    // Calculate EMD
-    float emd = cv::EMD(signature1, signature2, cv::DIST_L2);
-
-    return QString(
-               "Earth Mover's Distance computed\n"
-               "\n"
-               "value : %1\n")
-        .arg(static_cast<double>(emd));
-}
-
-// Function to calculate Kullback-Leibler divergence
-double klDivergence(const vector<double> &P, const vector<double> &Q) {
-    double kl_divergence = 0.0;
-
-    for (size_t i = 0; i < P.size(); ++i) {
-        if (P[i] != 0 && Q[i] != 0) {
-            kl_divergence += P[i] * std::log(P[i] / Q[i]);
-        }
-    }
-
-    return kl_divergence;
-}
-
-double jensenShannonDivergenceFromDistributions(const vector<double> &P, const vector<double> &Q) {
-    vector<double> M(P.size());
-    double js_divergence = 0.0;
-
-    // Calculate M = 1/2 * (P + Q)
-    for (size_t i = 0; i < P.size(); ++i) {
-        M[i] = 0.5 * (P[i] + Q[i]);
-    }
-
-    // Calculate JSD using KL divergence
-    js_divergence = 0.5 * klDivergence(P, M) + 0.5 * klDivergence(Q, M);
-
-    return js_divergence;
-}
-
-vector<double> normalizeDistribution(const vector<float> &distances) {
-    vector<double> distribution(distances.size());
-    double sum = 0.0;
-
-    // Calculate sum of distances
-    for (double dist : distances) {
-        sum += dist;
-    }
-
-    if (sum != 0) {
-        // Normalize each distance to form a probability distribution
-        for (size_t i = 0; i < distances.size(); ++i) {
-            distribution[i] = static_cast<double>(distances[i]) / sum;
-        }
-    }
-
-    return distribution;
-}
-
-// Function to calculate Jensen-Shannon divergence
-QString MainWindow::computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
-
-    if (cloud_a->size() != cloud_b->size()) return QString("Point clouds do not have the same number of points.");
-
-    // Compare cloud A to B
-    vector<float> distances_a = getDistances(cloud_a, cloud_b);
-    vector<float> distances_b = getDistances(cloud_b, cloud_a);
-
-    // Normalize both distance arrays to create probability distributions
-    vector<double> P = normalizeDistribution(distances_a);
-    vector<double> Q = normalizeDistribution(distances_b);
-
-    // Calculate the Jensen-Shannon Divergence
-    double jsd = jensenShannonDivergenceFromDistributions(P, Q);
-
-    return QString(
-               "Jensen-Shannon Divergence computed\n"
-               "\n"
-               "value : %1\n")
-        .arg(jsd);
 }
 
 
@@ -366,7 +212,7 @@ void MainWindow::colorizeHandler() {
     //rangeSlider->setEnabled(cloudsLoaded);
 
     if (cloudsLoaded) {
-        vector<float> distances = getDistances(cloud1, cloud2);
+        vector<float> distances = Compute::getDistances(cloud1, cloud2);
         showHistogram(distances);
         colorizeCloud(cloud1, distances);
     } else {
@@ -484,7 +330,9 @@ void MainWindow::colorizeCloud(PointCloudT::Ptr &cloud, const vector<float>& dis
     }
 }
 
-
+// ########################################################################
+// ########################## Histogram ###################################
+// ########################################################################
 
 
 // Function to create histogram data
@@ -609,7 +457,7 @@ void MainWindow::openFileForViewer(int id)
 PointCloudT::Ptr MainWindow::openFile()
 {
     // Open file dialog to select PCD, OBJ, or XYZ file
-    QString fileName = QFileDialog::getOpenFileName(this, "Open PCD, OBJ, or XYZ File", "", "PCD, OBJ, and XYZ Files (*.pcd *.obj *.xyz)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Open PCD, OBJ, PLY or XYZ File", "", "PCD, OBJ, PLY, and XYZ Files (*.pcd *.obj *.ply *.xyz)");
     if (fileName.isEmpty()) {
         return nullptr; // Return null if no file is selected
     }
@@ -664,6 +512,17 @@ PointCloudT::Ptr MainWindow::openFile()
         cloud_xyz->width = cloud_xyz->points.size();
         cloud_xyz->height = 1; // XYZ files are usually organized as unorganized point clouds
         cloud_xyz->is_dense = true;
+
+        // Transform PointXYZ to PointT (PointXYZRGBA)
+        return transformToRGBA(cloud_xyz);
+
+    } else if (fileExtension == "ply") {
+        // Load the PLY file
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
+        if (pcl::io::loadPLYFile(fileName.toStdString(), *cloud_xyz) == -1) {
+            QMessageBox::critical(this, "Error", "Failed to load the PLY file.");
+            return nullptr; // Return null if loading fails
+        }
 
         // Transform PointXYZ to PointT (PointXYZRGBA)
         return transformToRGBA(cloud_xyz);

@@ -44,10 +44,6 @@ private slots:
     void onSlider2ValueChanged(double value);
 
     void onCalculate();
-    QString computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    QString computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    QString computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    QString computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
 
     void showHistogram(const std::vector<float>& distances);
     QBarSeries* createHistogramSeries(const std::vector<float>& distances, int numBins);

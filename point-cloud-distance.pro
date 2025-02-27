@@ -10,11 +10,13 @@ CONFIG += c++17
 
 SOURCES += \
     RangeSlider.cpp \
+    compute.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
     RangeSlider.h \
+    compute.h \
     mainwindow.h
 
 FORMS += \

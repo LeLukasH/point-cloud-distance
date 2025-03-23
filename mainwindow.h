@@ -35,8 +35,10 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+    float getExponent();
+
 private slots:
-    PointCloudT::Ptr openFile();
+    PointCloudT::Ptr openFile(int id);
     PointCloudT::Ptr transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz);
     void updateViewer(int id);
     void openFileForViewer(int id);
@@ -83,7 +85,9 @@ protected:
 
     RangeSlider *rangeSlider;
 
-private:
+public:
     Ui::MainWindow *ui;
+
+    static MainWindow* instance;
 };
 #endif // MAINWINDOW_H

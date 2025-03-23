@@ -12,16 +12,21 @@ typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 
 using std::vector;
+class MainWindow;
 
 class Compute {
 public:
-    static QString computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    static QString computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    static QString computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    static QString computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    static vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    explicit Compute(MainWindow* mainWindow);
+
+    QString computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
 
 private:
+    MainWindow* mainWindow; // Store a pointer to MainWindow
+
     static double klDivergence(const vector<double> &P, const vector<double> &Q);
     static vector<double> normalizeDistribution(const vector<float> &distances);
 };

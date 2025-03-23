@@ -2,11 +2,17 @@
 #include <cmath>
 #include <algorithm>
 
+#include "mainwindow.h"
+
+Compute::Compute(MainWindow* mainWindow) : mainWindow(mainWindow) {}
+
 // Function to calculate distances between points
 vector<float> Compute::getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     pcl::search::KdTree<PointT> tree_b;
     tree_b.setInputCloud(cloud_b);
     vector<float> distances(cloud_a->points.size());
+
+    float exponent = mainWindow->getExponent();
 
     for (size_t i = 0; i < cloud_a->points.size(); ++i) {
         auto &point = cloud_a->points[i];
@@ -15,7 +21,7 @@ vector<float> Compute::getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr 
 
         tree_b.nearestKSearch(point, 1, indices, sqr_distances);
 
-        distances[i] = std::sqrt(sqr_distances[0]);
+        distances[i] = std::pow(std::sqrt(sqr_distances[0]), exponent);
     }
     return distances;
 }

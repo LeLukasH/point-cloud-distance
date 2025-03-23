@@ -1,9 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include <QFileDialog>
-#include <QMessageBox>
-
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/obj_io.h>
 #include <pcl/io/ply_io.h>
@@ -14,6 +11,9 @@
 #include <pcl/common/distances.h>
 
 #include <opencv2/opencv.hpp>
+
+#include <QFileDialog>
+#include <QMessageBox>
 
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
@@ -41,12 +41,17 @@ using namespace pcl::visualization;
 #include <pcl/visualization/cloud_viewer.h>
 #include <vtkGenericOpenGLRenderWindow.h>
 
+MainWindow* MainWindow::instance = nullptr;
+Compute* compute;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    instance = this;
+    compute = new Compute(this);
+
     cloud1 = nullptr;
     cloud2 = nullptr;
 
@@ -108,18 +113,17 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     // Populate the ColorFormatBox
-    QString colorFormats[] = {"RGB", "Yellow-Red", "Grayscale", "CMYK", "Heatmap", "Pastel", "Rainbow", "Default"};
+    QString colorFormats[] = {"RGB", "Yellow-Red", "Grayscale", "CMYK", "Heatmap", "Pastel", "Rainbow", "Default (No color)"};
     for (const auto& format : colorFormats) {
         ui->colorFormatBox->addItem(format);
     }
-
 
 
     cameraViews = QVector<CameraView>();
 
     // Set default camera parameters (adjust these as needed for your default view)
     Camera camDefault, camTop, camBottom, camLeft, camRight;
-    camDefault.pos[2] = 15.0;
+    //camDefault.pos[2] = 0.0;
     camTop.pos[1] = 15.0;
     camTop.view[1] = 0;
     camTop.view[1] = -1;
@@ -163,6 +167,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->cleanLogButton, &QPushButton::clicked, this, &MainWindow::clearLog);
 
+    QDoubleValidator *validator = new QDoubleValidator(-9.99, -9.99, 2, this); // Limits: 0 to 1,000,000 with 2 decimal places
+    validator->setNotation(QDoubleValidator::StandardNotation);
+    ui->exponentInput->setValidator(validator);
+
+    connect(ui->updateButton, &QPushButton::clicked, this, [=]() {colorizeHandler();;});
 }
 
 MainWindow::~MainWindow()
@@ -179,17 +188,17 @@ void MainWindow::onCalculate() {
 
     QString logMessage;
     if (ui->hausdorffRadioButton->isChecked()) {
-        logMessage = Compute::computeHausdorffDistance(cloud1, cloud2);
+        logMessage = compute->computeHausdorffDistance(cloud1, cloud2);
     } else if (ui->chamferRadioButton->isChecked()) {
-        logMessage = Compute::computeChamferDistance(cloud1, cloud2);
+        logMessage = compute->computeChamferDistance(cloud1, cloud2);
     } else if (ui->earthMoversRadioButton->isChecked()) {
-        logMessage = Compute::computeEarthMoversDistance(cloud1, cloud2);
+        logMessage = compute->computeEarthMoversDistance(cloud1, cloud2);
     } else if (ui->jensenShannonRadioButton->isChecked()) {
         if (cloud1->size() != cloud2->size()) {
             QMessageBox::warning(this, "Error", "To calculate Jensen-Shannon Divergence, both point clouds must have the same number of points.");
             return;
         }
-        logMessage = Compute::computeJensenShannonDivergence(cloud1, cloud2);
+        logMessage = compute->computeJensenShannonDivergence(cloud1, cloud2);
     } else {
         QMessageBox::warning(this, "Error", "Please select a distance metric.");
         return;
@@ -212,7 +221,7 @@ void MainWindow::colorizeHandler() {
     //rangeSlider->setEnabled(cloudsLoaded);
 
     if (cloudsLoaded) {
-        vector<float> distances = Compute::getDistances(cloud1, cloud2);
+        vector<float> distances = compute->getDistances(cloud1, cloud2);
         showHistogram(distances);
         colorizeCloud(cloud1, distances);
     } else {
@@ -300,7 +309,7 @@ QColor MainWindow::calculateColor(float factor) {
     else if (format == "White") {
         color.setRgb(255,255,255);
     }
-    else if (format == "Default") {
+    else if (format == "Default (No color)") {
         color = defaultColor;
     }
 
@@ -447,14 +456,14 @@ void MainWindow::updateViewer(int id) {
 
 void MainWindow::openFileForViewer(int id)
 {
-    PointCloudT::Ptr loaded_cloud = openFile();
+    PointCloudT::Ptr loaded_cloud = openFile(id);
     if (loaded_cloud != nullptr) {
         id == 1 ? cloud1 = loaded_cloud : cloud2 = loaded_cloud;
         colorizeHandler();
     }
 }
 
-PointCloudT::Ptr MainWindow::openFile()
+PointCloudT::Ptr MainWindow::openFile(int id)
 {
     // Open file dialog to select PCD, OBJ, or XYZ file
     QString fileName = QFileDialog::getOpenFileName(this, "Open PCD, OBJ, PLY or XYZ File", "", "PCD, OBJ, PLY, and XYZ Files (*.pcd *.obj *.ply *.xyz)");
@@ -465,15 +474,13 @@ PointCloudT::Ptr MainWindow::openFile()
     QFileInfo fileInfo(fileName);
     QString fileExtension = fileInfo.suffix().toLower();
 
-    if (fileExtension == "pcd") {
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
 
+    if (fileExtension == "pcd") {
         if (pcl::io::loadPCDFile<PointXYZ>(fileName.toStdString(), *cloud_xyz) == -1) {
                 QMessageBox::critical(this, "Error", "Failed to load the PCD file.");
                 return nullptr; // Return null if loading fails
         }
-        // Transform PointXYZ to PointT (PointXYZRGBA)
-        return transformToRGBA(cloud_xyz);
 
     } else if (fileExtension == "obj") {
         // Load the OBJ file as a polygon mesh
@@ -484,15 +491,10 @@ PointCloudT::Ptr MainWindow::openFile()
         }
 
         // Extract vertices from the mesh and convert to PointT (PointXYZRGBA)
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::fromPCLPointCloud2(mesh.cloud, *cloud_xyz);
-
-        // Transform PointXYZ to PointT (PointXYZRGBA)
-        return transformToRGBA(cloud_xyz);
 
     } else if (fileExtension == "xyz") {
         // Load the XYZ file
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
         ifstream infile(fileName.toStdString());
         if (!infile) {
             QMessageBox::critical(this, "Error", "Failed to open the XYZ file.");
@@ -513,24 +515,39 @@ PointCloudT::Ptr MainWindow::openFile()
         cloud_xyz->height = 1; // XYZ files are usually organized as unorganized point clouds
         cloud_xyz->is_dense = true;
 
-        // Transform PointXYZ to PointT (PointXYZRGBA)
-        return transformToRGBA(cloud_xyz);
-
     } else if (fileExtension == "ply") {
         // Load the PLY file
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
         if (pcl::io::loadPLYFile(fileName.toStdString(), *cloud_xyz) == -1) {
             QMessageBox::critical(this, "Error", "Failed to load the PLY file.");
             return nullptr; // Return null if loading fails
         }
 
-        // Transform PointXYZ to PointT (PointXYZRGBA)
-        return transformToRGBA(cloud_xyz);
-
     } else {
         QMessageBox::critical(this, "Error", "Unsupported file format.");
         return nullptr;
     }
+
+    QString viewerName = "";
+    QLabel* viewerLabel;
+    if (id == 1) {
+        viewerName = "Target";
+        viewerLabel = ui->targetLabel;
+    }
+    else {
+        viewerName = "Reference";
+        viewerLabel = ui->referenceLabel;
+    }
+
+    int maxLength = 70; // Adjust based on UI space
+    if (fileName.length() > maxLength) {
+        QString shortened = fileName.left(15) + "..." + fileName.right(50);
+        viewerLabel->setText(viewerName + ": " + shortened);
+    } else {
+        viewerLabel->setText(viewerName + ": " + fileName);
+    }
+
+    // Transform PointXYZ to PointT (PointXYZRGBA)
+    return transformToRGBA(cloud_xyz);
 }
 
 PointCloudT::Ptr MainWindow::transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz)
@@ -797,4 +814,8 @@ void MainWindow::on_exportButton_clicked() {
 
 void MainWindow::clearLog() {
     ui->logField->clear(); // Clears the text in the logField
+}
+
+float MainWindow::getExponent() {
+    return ui->exponentInput->text().toFloat();
 }

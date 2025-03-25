@@ -67,6 +67,8 @@ private slots:
     void clearLog();
 
 
+    void on_missingDataCheckBox_stateChanged(int arg1);
+
 private:
     double pointSize1 = 5;
     double pointSize2 = 5;

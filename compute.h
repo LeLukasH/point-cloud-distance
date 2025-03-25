@@ -18,11 +18,14 @@ class Compute {
 public:
     explicit Compute(MainWindow* mainWindow);
 
+    vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeCustomMeasure1(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeCustomMeasure2(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    QString computeCustomMeasure3(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorize = false);
 
 private:
     MainWindow* mainWindow; // Store a pointer to MainWindow

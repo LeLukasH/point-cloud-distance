@@ -199,13 +199,23 @@ void MainWindow::onCalculate() {
             return;
         }
         logMessage = compute->computeJensenShannonDivergence(cloud1, cloud2);
-    } else {
+    }
+    else if (ui->custom1RadioButton->isChecked()) {
+        logMessage = compute->computeCustomMeasure1(cloud1, cloud2);
+    }
+    else if (ui->custom2RadioButton->isChecked()) {
+        logMessage = compute->computeCustomMeasure2(cloud1, cloud2);
+    }
+    else if (ui->custom3RadioButton->isChecked()) {
+        logMessage = compute->computeCustomMeasure3(cloud1, cloud2, ui->missingDataCheckBox->isChecked());
+    }
+    else {
         QMessageBox::warning(this, "Error", "Please select a distance metric.");
         return;
     }
 
     // Append log message to logField
-    ui->logField->append(logMessage);
+    ui->logField->append("--------------------------------------------------------------\n\n" + logMessage);
 }
 
 
@@ -218,7 +228,7 @@ void MainWindow::colorizeHandler() {
 
     // Enable or disable colorizeButton and colorFormatBox based on whether both clouds are loaded
     ui->colorFormatBox->setEnabled(cloudsLoaded); // Only enable colorFormatBox if colorizeButton is checked and clouds are loaded
-    //rangeSlider->setEnabled(cloudsLoaded);
+    ui->missingDataCheckBox->setEnabled(cloudsLoaded);
 
     if (cloudsLoaded) {
         vector<float> distances = compute->getDistances(cloud1, cloud2);
@@ -419,13 +429,6 @@ void MainWindow::showHistogram(const std::vector<float>& distances) {
     axisX->setGridLineVisible(false);
     chart->removeAxis(chart->axes(Qt::Horizontal).first());
     chart->addAxis(axisX, Qt::AlignBottom);
-
-    // Configure y-axis without labels or grid lines
-    /*QValueAxis* axisY = new QValueAxis();
-    axisY->setGridLineVisible(false);
-    axisY->setLabelsVisible(false);
-    chart->addAxis(axisY, Qt::AlignLeft);
-    series->attachAxis(axisY);*/
 }
 
 
@@ -465,8 +468,9 @@ void MainWindow::openFileForViewer(int id)
 
 PointCloudT::Ptr MainWindow::openFile(int id)
 {
+    QString title = id == 1 ? "Target" : "Reference";
     // Open file dialog to select PCD, OBJ, or XYZ file
-    QString fileName = QFileDialog::getOpenFileName(this, "Open PCD, OBJ, PLY or XYZ File", "", "PCD, OBJ, PLY, and XYZ Files (*.pcd *.obj *.ply *.xyz)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Open " + title + " Point Cloud File", "", "PCD, OBJ, PLY, and XYZ Files (*.pcd *.obj *.ply *.xyz)");
     if (fileName.isEmpty()) {
         return nullptr; // Return null if no file is selected
     }
@@ -819,3 +823,10 @@ void MainWindow::clearLog() {
 float MainWindow::getExponent() {
     return ui->exponentInput->text().toFloat();
 }
+
+void MainWindow::on_missingDataCheckBox_stateChanged(int arg1)
+{
+    compute->computeCustomMeasure3(cloud1, cloud2, arg1 == Qt::Checked);
+    updateViewer(2);
+}
+

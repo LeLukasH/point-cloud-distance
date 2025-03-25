@@ -32,12 +32,7 @@ QString Compute::computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT
 
     double max_dist = *std::max_element(distances.begin(), distances.end());
 
-    return QString(
-               "Hausdorff Distance computed\n"
-               "(value is the longest shortest distance)\n"
-               "\n"
-               "value : %1\n")
-        .arg(max_dist);
+    return QString("Hausdorff Distance: %1\n").arg(max_dist);
 }
 
 // Function to compute Chamfer Distance
@@ -49,12 +44,7 @@ QString Compute::computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::
         sum += distances[i] * distances[i];
     }
 
-    return QString(
-               "Chamfer Distance computed\n"
-               "(average squared distance)\n"
-               "\n"
-               "value : %1\n")
-        .arg(sum / cloud_a->points.size());
+    return QString("Chamfer Distance: %1\n").arg(sum / cloud_a->points.size());
 }
 
 // Function to compute Earth Movers Distance
@@ -81,11 +71,7 @@ QString Compute::computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointClou
 
     float emd = cv::EMD(signature1, signature2, cv::DIST_L2);
 
-    return QString(
-               "Earth Mover's Distance computed\n"
-               "\n"
-               "value : %1\n")
-        .arg(static_cast<double>(emd));
+    return QString("Earth Mover's Distance: %1\n").arg(static_cast<double>(emd));
 }
 
 // Function to calculate Kullback-Leibler divergence
@@ -138,9 +124,130 @@ QString Compute::computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, Point
     double jsd = 0.5 * klDivergence(P, M) + 0.5 * klDivergence(Q, M);
 
     return QString(
-               "Jensen-Shannon Divergence computed\n"
-               "(0 indicates identical distributions and 1 indicates maximum dissimilarity)\n"
-               "\n"
-               "value : %1\n")
+               "Jensen-Shannon Divergence:  %1\n"
+               "(0 indicates identical distributions and 1 indicates maximum dissimilarity)\n")
         .arg(jsd);
+}
+
+QString Compute::computeCustomMeasure1(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+    vector<float> distances = getDistances(cloud_a, cloud_b);
+
+    float count = 0.0;
+    for (auto d : distances) {
+        if (d == 0) {
+            count++;
+        }
+    }
+
+    float result = count / distances.size();
+    float scaled_result = result * 100.0f;
+    return QString("Number of identical points:  %1 (%2%)\n")
+        .arg(count)
+        .arg(QString::number(scaled_result, 'f', 2));
+}
+
+QString Compute::computeCustomMeasure2(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
+    vector<float> distances = getDistances(cloud_a, cloud_b);
+
+    float threshold = 2;
+
+    float sum = std::accumulate(distances.begin(), distances.end(), 0.0f);
+
+    // Calculate and return the average distance
+    float avg_dist = sum / distances.size();
+
+    float total = 0.00;
+    for (auto d : distances) {
+        if (d >= avg_dist * threshold) {
+            total += d;
+        }
+    }
+
+    return QString(
+               "Outliers total distance:  %1\n"
+               "(Value is the sum of distances greater than 2 * average_distance.)\n")
+        .arg(total);
+}
+
+struct Data {
+    float distance;
+    int indexA;
+    int indexB;
+
+    // Define sorting criteria (comparison operator)
+    bool operator<(const Data& other) const {
+        return distance < other.distance;
+    }
+};
+
+QString Compute::computeCustomMeasure3(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorize) {
+    pcl::search::KdTree<PointT> tree_a;
+    tree_a.setInputCloud(cloud_a);
+    vector<Data> values(cloud_b->points.size()); // distance, index A, index B
+
+    float exponent = mainWindow->getExponent();
+
+    for (size_t i = 0; i < cloud_b->points.size(); ++i) {
+        auto &point = cloud_b->points[i];
+        pcl::Indices indices(1); // To store index of the nearest point
+        vector<float> sqr_distances(1); // To store squared distance of the nearest point
+
+        tree_a.nearestKSearch(point, 1, indices, sqr_distances);
+
+        values[i].distance = std::pow(std::sqrt(sqr_distances[0]), exponent);
+        values[i].indexA = indices[0];
+        values[i].indexB = i;
+    }
+
+    sort(values.begin(), values.end());
+
+    vector<bool> used(cloud_a->points.size());
+
+    auto maxElement = std::max_element(values.begin(), values.end());
+    float max_dist = maxElement->distance;
+
+    vector<Data> points;
+    float total_dist = 0.00f;
+
+    for (int i = 0; i < values.size(); i++) {
+        auto item = values[i];
+        if (!used[item.indexA]) {
+            used[item.indexA] = true;
+        }
+        else {
+            total_dist += item.distance;
+            points.push_back(item);
+        }
+    }
+
+
+    if (colorize) {
+        QColor color;
+        for (auto data : points) {
+
+            float threshold = 0.8f;
+            float factor = data.distance / max_dist;
+
+            if (factor <= threshold) {
+                factor = factor / threshold;
+            }
+            // If distance is in range [0.8, 1], set factor to 1
+            else {
+                factor = 1.0f;
+            }
+            color.setRed(255 * factor);
+            cloud_b->points[data.indexB].r = color.red();
+        }
+    }
+    else {
+        for (auto data : points) {
+            cloud_b->points[data.indexB].r = 0;
+        }
+    }
+
+    return QString(
+               "Points classified as missing:  %1\n"
+               "Total missing distance:  %2\n")
+        .arg(points.size())
+        .arg(total_dist);
 }

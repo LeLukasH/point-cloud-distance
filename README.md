@@ -33,12 +33,20 @@ No installation required.
   - Outliers Measure (custom)
   - Missing Data Measure (custom)
 - View distribution of distances using histogram
-- Multiple colorization schemes: RGB, Yellow-Red, Grayscale, Heatmap, CMYK, Pastel, Rainbow
+- Multiple colorization schemes:
+  - RGB
+  - Yellow-Red
+  - Grayscale
+  - Heatmap
+  - CMYK
+  - Pastel
+  - Rainbow
 - Adjustable point size for each cloud
 - Load file formats: `.pcd`, `.ply`, `.obj`, `.xyz`
-- Dual viewer interface (target and reference cloud)
+- Dual viewer interface for target and reference clouds
 - Save and switch between camera views
-- **Export visualizations to PNG images** (saves a snapshot of the current viewer's display)
+- Export visualizations to PNG images (saves a snapshot of the current viewer's display)
+- Option to visualize missing data by classifying and colorizing missing points based on distance
 
 For a more detailed explanation of the features and their implementation, please refer to the end of Chapter 3 in my [bachelor thesis](path-to-bachelor-thesis.pdf).
 
@@ -94,6 +102,9 @@ std::vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &clo
 - **Chamfer Distance**: Average of all distances.
 - **Earth Mover’s Distance (EMD)**: Measures the cost of transforming one distribution into another. Implemented using OpenCV’s `EMD` function.
 - **Jensen-Shannon Divergence**: Measures similarity between histograms.
+- **Identity Measure (Custom)**: Computes the number of identical points between two clouds and presents the result as a percentage.
+- **Outliers Measure (Custom)**: Computes the total distance of outlier points (points further than twice the average distance from all others).
+- **Missing Data Measure (Custom)**: Classifies and visualizes missing points, based on a distance threshold and whether the points in one cloud have corresponding nearest points in the other cloud.
 
 ---
 

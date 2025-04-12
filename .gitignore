@@ -56,4 +56,5 @@ compile_commands.json
 [Dd]ebug/
 [Bb]uild/
 
+.vscode/
 samples/

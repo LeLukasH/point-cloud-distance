@@ -108,6 +108,12 @@ std::vector<float> getDistances(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &clo
 
 ---
 
+## 📄 Documentation
+
+You can browse the full project documentation [here](https://lelukash.github.io/point-cloud-distance/).
+
+---
+
 ## 🤝 Contributing
 
 Pull requests are welcome. For major changes, please open an issue first.

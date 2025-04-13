@@ -1,0 +1,101 @@
+\doxysection{mainwindow.\+h}
+\hypertarget{mainwindow_8h_source}{}\label{mainwindow_8h_source}\index{src/mainwindow.h@{src/mainwindow.h}}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{00001\ \textcolor{preprocessor}{\#ifndef\ MAINWINDOW\_H}}
+\DoxyCodeLine{00002\ \textcolor{preprocessor}{\#define\ MAINWINDOW\_H}}
+\DoxyCodeLine{00003\ }
+\DoxyCodeLine{00004\ \textcolor{preprocessor}{\#include\ <QMainWindow>}}
+\DoxyCodeLine{00005\ }
+\DoxyCodeLine{00006\ \textcolor{preprocessor}{\#include\ <pcl/point\_types.h>}}
+\DoxyCodeLine{00007\ \textcolor{preprocessor}{\#include\ <pcl/point\_cloud.h>}}
+\DoxyCodeLine{00008\ \textcolor{preprocessor}{\#include\ <pcl/visualization/pcl\_visualizer.h>}}
+\DoxyCodeLine{00009\ }
+\DoxyCodeLine{00010\ \textcolor{preprocessor}{\#include\ <QtCharts/QChartView>}}
+\DoxyCodeLine{00011\ \textcolor{preprocessor}{\#include\ <QtCharts/QBarSeries>}}
+\DoxyCodeLine{00012\ \textcolor{preprocessor}{\#include\ <QComboBox>}}
+\DoxyCodeLine{00013\ \textcolor{preprocessor}{\#include\ "{}RangeSlider.h"{}}}
+\DoxyCodeLine{00014\ }
+\DoxyCodeLine{00015\ \textcolor{keyword}{typedef}\ pcl::PointXYZRGBA\ PointT;}
+\DoxyCodeLine{00016\ \textcolor{keyword}{typedef}\ pcl::PointCloud<PointT>\ PointCloudT;}
+\DoxyCodeLine{00017\ }
+\DoxyCodeLine{00018\ QT\_BEGIN\_NAMESPACE}
+\DoxyCodeLine{00019\ \textcolor{keyword}{namespace\ }Ui\ \{}
+\DoxyCodeLine{00020\ \textcolor{keyword}{class\ }MainWindow;}
+\DoxyCodeLine{00021\ \}}
+\DoxyCodeLine{00022\ QT\_END\_NAMESPACE}
+\DoxyCodeLine{00023\ }
+\DoxyCodeLine{00024\ \textcolor{keyword}{struct\ }\mbox{\hyperlink{struct_camera_view}{CameraView}}\ \{}
+\DoxyCodeLine{00025\ \ \ \ \ QString\ name;}
+\DoxyCodeLine{00026\ \ \ \ \ pcl::visualization::Camera\ camera;}
+\DoxyCodeLine{00027\ \ \ \ \ \textcolor{keywordtype}{float}\ pointSize;\ \textcolor{comment}{//\ or\ float\ if\ point\ size\ can\ be\ fractional}}
+\DoxyCodeLine{00028\ \};}
+\DoxyCodeLine{00029\ }
+\DoxyCodeLine{00030\ \textcolor{keyword}{class\ }\mbox{\hyperlink{class_main_window_a996c5a2b6f77944776856f08ec30858d}{MainWindow}}\ :\ \textcolor{keyword}{public}\ QMainWindow}
+\DoxyCodeLine{00031\ \{}
+\DoxyCodeLine{00032\ \ \ \ \ Q\_OBJECT}
+\DoxyCodeLine{00033\ }
+\DoxyCodeLine{00034\ \textcolor{keyword}{public}:}
+\DoxyCodeLine{00035\ \ \ \ \ \mbox{\hyperlink{class_main_window_a996c5a2b6f77944776856f08ec30858d}{MainWindow}}(QWidget\ *parent\ =\ \textcolor{keyword}{nullptr});}
+\DoxyCodeLine{00036\ \ \ \ \ \mbox{\hyperlink{class_main_window_ae98d00a93bc118200eeef9f9bba1dba7}{\string~MainWindow}}();}
+\DoxyCodeLine{00037\ }
+\DoxyCodeLine{00038\ \ \ \ \ \textcolor{keywordtype}{float}\ \mbox{\hyperlink{class_main_window_abf1506e533945c4f8276aa086792c4f5}{getExponent}}();}
+\DoxyCodeLine{00039\ }
+\DoxyCodeLine{00040\ \textcolor{keyword}{private}\ slots:}
+\DoxyCodeLine{00041\ \ \ \ \ PointCloudT::Ptr\ openFile(\textcolor{keywordtype}{int}\ \textcolor{keywordtype}{id});}
+\DoxyCodeLine{00042\ \ \ \ \ PointCloudT::Ptr\ transformToRGBA(pcl::PointCloud<pcl::PointXYZ>::Ptr\ cloud\_xyz);}
+\DoxyCodeLine{00043\ \ \ \ \ \textcolor{keywordtype}{void}\ updateViewer(\textcolor{keywordtype}{int}\ \textcolor{keywordtype}{id});}
+\DoxyCodeLine{00044\ \ \ \ \ \textcolor{keywordtype}{void}\ openFileForViewer(\textcolor{keywordtype}{int}\ \textcolor{keywordtype}{id});}
+\DoxyCodeLine{00045\ \ \ \ \ \textcolor{keywordtype}{void}\ onSlider1ValueChanged(\textcolor{keywordtype}{double}\ value);}
+\DoxyCodeLine{00046\ \ \ \ \ \textcolor{keywordtype}{void}\ onSlider2ValueChanged(\textcolor{keywordtype}{double}\ value);}
+\DoxyCodeLine{00047\ }
+\DoxyCodeLine{00048\ \ \ \ \ \textcolor{keywordtype}{void}\ onCalculate();}
+\DoxyCodeLine{00049\ }
+\DoxyCodeLine{00050\ \ \ \ \ \textcolor{keywordtype}{void}\ showHistogram(\textcolor{keyword}{const}\ std::vector<float>\&\ distances);}
+\DoxyCodeLine{00051\ \ \ \ \ QBarSeries*\ createHistogramSeries(\textcolor{keyword}{const}\ std::vector<float>\&\ distances,\ \textcolor{keywordtype}{int}\ numBins);}
+\DoxyCodeLine{00052\ \ \ \ \ \textcolor{keywordtype}{void}\ resetHistogram();}
+\DoxyCodeLine{00053\ }
+\DoxyCodeLine{00054\ \ \ \ \ \textcolor{keywordtype}{void}\ colorizeHandler();}
+\DoxyCodeLine{00055\ \ \ \ \ \textcolor{keywordtype}{void}\ colorizeCloud(PointCloudT::Ptr\ \&cloud,\ \textcolor{keyword}{const}\ std::vector<float>\&\ distances);}
+\DoxyCodeLine{00056\ \ \ \ \ \textcolor{keywordtype}{void}\ colorizePoint(PointT\ \&point,\ \textcolor{keywordtype}{float}\ distance,\ \textcolor{keywordtype}{float}\ max\_distance,\ \textcolor{keywordtype}{float}\ min\_distance);}
+\DoxyCodeLine{00057\ \ \ \ \ QColor\ calculateColor(\textcolor{keywordtype}{float}\ color\_factor);}
+\DoxyCodeLine{00058\ }
+\DoxyCodeLine{00059\ \ \ \ \ \textcolor{keywordtype}{void}\ saveCurrentView(\textcolor{keywordtype}{int}\ \textcolor{keywordtype}{id});}
+\DoxyCodeLine{00060\ \ \ \ \ \textcolor{keywordtype}{void}\ deleteCurrentView(\textcolor{keywordtype}{int}\ index);}
+\DoxyCodeLine{00061\ \ \ \ \ \textcolor{keywordtype}{void}\ updateComboBoxes(\textcolor{keywordtype}{int}\ showIndex1\ =\ 0,\ \textcolor{keywordtype}{int}\ showIndex2\ =\ 0);}
+\DoxyCodeLine{00062\ \ \ \ \ \textcolor{keywordtype}{void}\ applyViewToViewer(\textcolor{keywordtype}{int}\ \textcolor{keywordtype}{id},\ \textcolor{keywordtype}{int}\ index);}
+\DoxyCodeLine{00063\ \ \ \ \ \textcolor{keywordtype}{void}\ onCameraChanged(\textcolor{keywordtype}{int}\ \textcolor{keywordtype}{id});}
+\DoxyCodeLine{00064\ \ \ \ \ \textcolor{keywordtype}{void}\ mouseCallback(\textcolor{keyword}{const}\ pcl::visualization::MouseEvent\&\ event,\ \textcolor{keywordtype}{int}\ viewerID);}
+\DoxyCodeLine{00065\ }
+\DoxyCodeLine{00066\ \ \ \ \ \textcolor{keywordtype}{void}\ on\_exportButton\_clicked();}
+\DoxyCodeLine{00067\ \ \ \ \ \textcolor{keywordtype}{void}\ clearLog();}
+\DoxyCodeLine{00068\ }
+\DoxyCodeLine{00069\ }
+\DoxyCodeLine{00070\ \ \ \ \ \textcolor{keywordtype}{void}\ on\_missingDataCheckBox\_stateChanged(\textcolor{keywordtype}{int}\ arg1);}
+\DoxyCodeLine{00071\ }
+\DoxyCodeLine{00072\ \textcolor{keyword}{private}:}
+\DoxyCodeLine{00073\ \ \ \ \ \textcolor{keywordtype}{double}\ pointSize1\ =\ 5;}
+\DoxyCodeLine{00074\ \ \ \ \ \textcolor{keywordtype}{double}\ pointSize2\ =\ 5;}
+\DoxyCodeLine{00075\ \ \ \ \ QColor\ backgroundColor\ =\ QColor(255,255,255);}
+\DoxyCodeLine{00076\ \ \ \ \ QColor\ defaultColor\ =\ QColor(0,0,0);}
+\DoxyCodeLine{00077\ }
+\DoxyCodeLine{00078\ \textcolor{keyword}{protected}:}
+\DoxyCodeLine{00079\ \ \ \ \ PointCloudT::Ptr\ cloud1;}
+\DoxyCodeLine{00080\ \ \ \ \ PointCloudT::Ptr\ cloud2;}
+\DoxyCodeLine{00081\ }
+\DoxyCodeLine{00082\ \ \ \ \ pcl::visualization::PCLVisualizer::Ptr\ viewer1;}
+\DoxyCodeLine{00083\ \ \ \ \ pcl::visualization::PCLVisualizer::Ptr\ viewer2;}
+\DoxyCodeLine{00084\ }
+\DoxyCodeLine{00085\ \ \ \ \ QChartView*\ chartView;}
+\DoxyCodeLine{00086\ \ \ \ \ QVector<CameraView>\ cameraViews;}
+\DoxyCodeLine{00087\ }
+\DoxyCodeLine{00088\ \ \ \ \ \mbox{\hyperlink{class_range_slider}{RangeSlider}}\ *rangeSlider;}
+\DoxyCodeLine{00089\ }
+\DoxyCodeLine{00090\ \textcolor{keyword}{public}:}
+\DoxyCodeLine{00091\ \ \ \ \ Ui::MainWindow\ *ui;}
+\DoxyCodeLine{00092\ }
+\DoxyCodeLine{00093\ \ \ \ \ \textcolor{keyword}{static}\ \mbox{\hyperlink{class_main_window_a996c5a2b6f77944776856f08ec30858d}{MainWindow}}*\ instance;}
+\DoxyCodeLine{00094\ \};}
+\DoxyCodeLine{00095\ \textcolor{preprocessor}{\#endif\ }\textcolor{comment}{//\ MAINWINDOW\_H}}
+
+\end{DoxyCode}

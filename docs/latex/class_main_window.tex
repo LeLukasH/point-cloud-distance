@@ -1,0 +1,111 @@
+\doxysection{Main\+Window Class Reference}
+\hypertarget{class_main_window}{}\label{class_main_window}\index{MainWindow@{MainWindow}}
+
+
+The \doxylink{class_main_window}{Main\+Window} class is the main GUI for the application. It handles user interactions, including loading point clouds, adjusting point sizes, applying various distance metrics, and managing camera views.  
+
+
+Inheritance diagram for Main\+Window\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{class_main_window}
+\end{center}
+\end{figure}
+\doxysubsubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_main_window_a996c5a2b6f77944776856f08ec30858d}{Main\+Window}} (QWidget \texorpdfstring{$\ast$}{*}parent=nullptr)
+\begin{DoxyCompactList}\small\item\em Constructs a \doxylink{class_main_window}{Main\+Window} object and sets up all necessary UI components and signal connections. \end{DoxyCompactList}\item 
+\Hypertarget{class_main_window_ae98d00a93bc118200eeef9f9bba1dba7}\label{class_main_window_ae98d00a93bc118200eeef9f9bba1dba7} 
+{\bfseries \texorpdfstring{$\sim$}{\string~}\+Main\+Window} ()
+\begin{DoxyCompactList}\small\item\em Destructor for the \doxylink{class_main_window}{Main\+Window} object, cleaning up allocated resources. \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{class_main_window_abf1506e533945c4f8276aa086792c4f5}{get\+Exponent}} ()
+\begin{DoxyCompactList}\small\item\em Retrieves the exponent value from the input field. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{class_main_window_a35466a70ed47252a0191168126a352a5}\label{class_main_window_a35466a70ed47252a0191168126a352a5} 
+Ui\+::\+Main\+Window \texorpdfstring{$\ast$}{*} {\bfseries ui}
+\end{DoxyCompactItemize}
+\doxysubsubsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{class_main_window_a806ddf9cb9332e58f7da583f3df03fd8}\label{class_main_window_a806ddf9cb9332e58f7da583f3df03fd8} 
+static \mbox{\hyperlink{class_main_window}{Main\+Window}} \texorpdfstring{$\ast$}{*} {\bfseries instance} = nullptr
+\end{DoxyCompactItemize}
+\doxysubsubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{class_main_window_a5c77f166c835ee3160fccf2a72483d4d}\label{class_main_window_a5c77f166c835ee3160fccf2a72483d4d} 
+Point\+Cloud\+T\+::\+Ptr {\bfseries cloud1}
+\item 
+\Hypertarget{class_main_window_a316874f1a4e8c57807fa02900387b521}\label{class_main_window_a316874f1a4e8c57807fa02900387b521} 
+Point\+Cloud\+T\+::\+Ptr {\bfseries cloud2}
+\item 
+\Hypertarget{class_main_window_a741ed97d62e4a1b66b85539ea837f4d3}\label{class_main_window_a741ed97d62e4a1b66b85539ea837f4d3} 
+pcl\+::visualization\+::\+PCLVisualizer\+::\+Ptr {\bfseries viewer1}
+\item 
+\Hypertarget{class_main_window_abb688ae83280fc84be340a63686cbc2d}\label{class_main_window_abb688ae83280fc84be340a63686cbc2d} 
+pcl\+::visualization\+::\+PCLVisualizer\+::\+Ptr {\bfseries viewer2}
+\item 
+\Hypertarget{class_main_window_a65fb64a7b9a722f77bfc022a9f4b5e8b}\label{class_main_window_a65fb64a7b9a722f77bfc022a9f4b5e8b} 
+QChart\+View \texorpdfstring{$\ast$}{*} {\bfseries chart\+View}
+\item 
+\Hypertarget{class_main_window_a5505ecce7e7d24bec3d32193178cf2c1}\label{class_main_window_a5505ecce7e7d24bec3d32193178cf2c1} 
+QVector$<$ \mbox{\hyperlink{struct_camera_view}{Camera\+View}} $>$ {\bfseries camera\+Views}
+\item 
+\Hypertarget{class_main_window_ac96ec50e0df4650c88441587b8874c26}\label{class_main_window_ac96ec50e0df4650c88441587b8874c26} 
+\mbox{\hyperlink{class_range_slider}{Range\+Slider}} \texorpdfstring{$\ast$}{*} {\bfseries range\+Slider}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+The \doxylink{class_main_window}{Main\+Window} class is the main GUI for the application. It handles user interactions, including loading point clouds, adjusting point sizes, applying various distance metrics, and managing camera views. 
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\Hypertarget{class_main_window_a996c5a2b6f77944776856f08ec30858d}\index{MainWindow@{MainWindow}!MainWindow@{MainWindow}}
+\index{MainWindow@{MainWindow}!MainWindow@{MainWindow}}
+\doxysubsubsection{\texorpdfstring{MainWindow()}{MainWindow()}}
+{\footnotesize\ttfamily \label{class_main_window_a996c5a2b6f77944776856f08ec30858d} 
+Main\+Window\+::\+Main\+Window (\begin{DoxyParamCaption}\item[{QWidget \texorpdfstring{$\ast$}{*}}]{parent}{ = {\ttfamily nullptr}}\end{DoxyParamCaption})}
+
+
+
+Constructs a \doxylink{class_main_window}{Main\+Window} object and sets up all necessary UI components and signal connections. 
+
+Initializes the UI, sets up renderers for the point cloud viewers, and connects various UI elements (e.\+g., buttons, sliders, combo boxes) to their corresponding slots for user interaction.
+
+
+\begin{DoxyParams}{Parameters}
+{\em parent} & The parent QWidget for this window. \\
+\hline
+\end{DoxyParams}
+
+
+\doxysubsection{Member Function Documentation}
+\Hypertarget{class_main_window_abf1506e533945c4f8276aa086792c4f5}\index{MainWindow@{MainWindow}!getExponent@{getExponent}}
+\index{getExponent@{getExponent}!MainWindow@{MainWindow}}
+\doxysubsubsection{\texorpdfstring{getExponent()}{getExponent()}}
+{\footnotesize\ttfamily \label{class_main_window_abf1506e533945c4f8276aa086792c4f5} 
+float Main\+Window\+::get\+Exponent (\begin{DoxyParamCaption}{}{}\end{DoxyParamCaption})}
+
+
+
+Retrieves the exponent value from the input field. 
+
+This method converts the text input in the exponent input field to a float value.
+
+
+\begin{DoxyParams}{Parameters}
+{\em none} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+float The exponent value entered by the user. 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+src/mainwindow.\+h\item 
+src/mainwindow.\+cpp\end{DoxyCompactItemize}

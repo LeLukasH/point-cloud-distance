@@ -690,7 +690,7 @@
            <x>0</x>
            <y>20</y>
            <width>341</width>
-           <height>191</height>
+           <height>194</height>
           </rect>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -864,14 +864,12 @@
      <height>21</height>
     </rect>
    </property>
-  </widget>
-  <widget class="QToolBar" name="mainToolBar">
-   <attribute name="toolBarArea">
-    <enum>TopToolBarArea</enum>
-   </attribute>
-   <attribute name="toolBarBreak">
-    <bool>false</bool>
-   </attribute>
+   <widget class="QMenu" name="menuPoint_Cloud_Distance">
+    <property name="title">
+     <string>Point Cloud Distance</string>
+    </property>
+   </widget>
+   <addaction name="menuPoint_Cloud_Distance"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
  </widget>

@@ -37,7 +37,7 @@ LIBS += -lvtkCommonCore -lvtkCommonDataModel -lvtkCommonMath -lvtkFiltersCore -l
 # PCL Libraries
 LIBS += -lpcl_common -lpcl_io -lpcl_filters -lpcl_visualization -lpcl_search -lpcl_kdtree
 # OpenCV Libraries
-LIBS += -lopencv_core4 -lopencv_imgproc4 -lopencv_highgui4 -lopencv_imgcodecs4 -lopencv_videoio4 -lopencv_calib3d4 -lopencv_features2d4 -lopencv_flann4 -lopencv_ml4
+LIBS += -lopencv_core4 -lopencv_imgproc4
 
 INCLUDEPATH += D:/PROGRAMS/vcpkg2/installed/x64-windows/include/qt6
 LIBS += -L"D:/PROGRAMS/vcpkg2/installed/x64-windows/lib" -lQt6Core -lQt6Gui -lQt6Widgets

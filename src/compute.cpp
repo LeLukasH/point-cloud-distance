@@ -223,8 +223,8 @@ QString Compute::computeCustomMeasure1(PointCloudT::Ptr &cloud_a, PointCloudT::P
 /**
  * @brief Computes a custom measure based on distances between two point clouds.
  *
- * This function calculates the average distance between points in two point clouds, `cloud_a` and `cloud_b`.
- * It then computes the sum of distances that are greater than twice the average distance (outliers) and returns
+ * This function calculates the median distance between points in two point clouds, `cloud_a` and `cloud_b`.
+ * It then computes the sum of distances that are greater than twice the median distance (outliers) and returns
  * a string with the total outlier distance.
  *
  * @param[in] cloud_a First point cloud.
@@ -233,21 +233,28 @@ QString Compute::computeCustomMeasure1(PointCloudT::Ptr &cloud_a, PointCloudT::P
  */
 QString Compute::computeCustomMeasure2(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     // Get the list of distances between points in both clouds
-    vector<float> distances = getDistances(cloud_a, cloud_b);
+    std::vector<float> distances = getDistances(cloud_a, cloud_b);
 
     // Set the threshold value for outliers
-    float threshold = 2;
+    float threshold = 2.0f;
 
-    // Calculate the sum of all distances
-    float sum = std::accumulate(distances.begin(), distances.end(), 0.0f);
+    // Sort the distances to compute median
+    std::sort(distances.begin(), distances.end());
 
-    // Calculate and return the average distance
-    float avg_dist = sum / distances.size();
+    float median;
+    size_t n = distances.size();
+    if (n == 0) {
+        return "No distances available.";
+    } else if (n % 2 == 0) {
+        median = (distances[n / 2 - 1] + distances[n / 2]) / 2.0f;
+    } else {
+        median = distances[n / 2];
+    }
 
-    float total = 0.00;
-    // Sum the distances that are greater than twice the average distance
+    float total = 0.0f;
+    // Sum the distances that are greater than twice the median distance
     for (auto d : distances) {
-        if (d >= avg_dist * threshold) {
+        if (d >= median * threshold) {
             total += d;
         }
     }
@@ -255,9 +262,10 @@ QString Compute::computeCustomMeasure2(PointCloudT::Ptr &cloud_a, PointCloudT::P
     // Return the total outlier distance
     return QString(
                "Outliers total distance:  %1\n"
-               "(Value is the sum of distances greater than 2 * average_distance.)\n")
+               "(Value is the sum of distances greater than 2 * median_distance.)\n")
         .arg(total);
 }
+
 
 /**
  * @brief Data structure for holding distance and indices between point clouds.

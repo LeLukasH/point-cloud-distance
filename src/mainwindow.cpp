@@ -266,6 +266,7 @@ void MainWindow::colorizeHandler() {
         vector<float> distances = compute->getDistances(cloud1, cloud2);
         showHistogram(distances);
         colorizeCloud(cloud1, distances);
+        compute->computeCustomMeasure3(cloud1, cloud2, ui->missingDataCheckBox->isChecked());
     } else {
         // If one or both clouds are missing, ensure colorizeButton and colorFormatBox are disabled
         //ui->colorizeButton->setChecked(false);

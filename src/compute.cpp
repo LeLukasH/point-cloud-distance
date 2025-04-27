@@ -356,6 +356,10 @@ QString Compute::computeCustomMeasure3(PointCloudT::Ptr &cloud_a, PointCloudT::P
         }
     }
 
+    for (auto &point : cloud_b->points) {
+        point.r = 0;
+    }
+
     // If colorization is enabled, apply colors based on distance
     if (colorize) {
         QColor color;

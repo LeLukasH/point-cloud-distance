@@ -63,7 +63,7 @@ private slots:
     void onCameraChanged(int id);
     void mouseCallback(const pcl::visualization::MouseEvent& event, int viewerID);
 
-    void on_exportButton_clicked();
+    void exportImage(int id);
     void clearLog();
 
 

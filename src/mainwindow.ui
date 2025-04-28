@@ -527,9 +527,21 @@
           <property name="enabled">
            <bool>true</bool>
           </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>105</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="maximumSize">
            <size>
-            <width>80</width>
+            <width>105</width>
             <height>16777215</height>
            </size>
           </property>
@@ -583,19 +595,25 @@
            <bool>true</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="minimumSize">
+           <size>
+            <width>105</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="maximumSize">
            <size>
-            <width>80</width>
+            <width>105</width>
             <height>16777215</height>
            </size>
           </property>
           <property name="text">
-           <string>Exponent:</string>
+           <string>Distance Exponent:</string>
           </property>
          </widget>
         </item>
@@ -845,31 +863,50 @@
        </spacer>
       </item>
       <item>
-       <widget class="QPushButton" name="exportButton">
-        <property name="text">
-         <string>Export Image...</string>
+       <layout class="QHBoxLayout" name="horizontalLayout_14">
+        <property name="spacing">
+         <number>20</number>
         </property>
-       </widget>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QPushButton" name="exportTargetButton">
+          <property name="text">
+           <string> Export Target...</string>
+          </property>
+          <property name="icon">
+           <iconset theme="QIcon::ThemeIcon::CameraPhoto"/>
+          </property>
+          <property name="iconSize">
+           <size>
+            <width>12</width>
+            <height>12</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="exportReferenceButton">
+          <property name="text">
+           <string> Export Reference...</string>
+          </property>
+          <property name="icon">
+           <iconset theme="QIcon::ThemeIcon::CameraPhoto"/>
+          </property>
+          <property name="iconSize">
+           <size>
+            <width>12</width>
+            <height>12</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </item>
    </layout>
-  </widget>
-  <widget class="QMenuBar" name="menuBar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1470</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <widget class="QMenu" name="menuPoint_Cloud_Distance">
-    <property name="title">
-     <string>Point Cloud Distance</string>
-    </property>
-   </widget>
-   <addaction name="menuPoint_Cloud_Distance"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
  </widget>

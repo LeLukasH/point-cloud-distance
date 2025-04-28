@@ -136,19 +136,26 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Set default camera views
     Camera camDefault, camTop, camBottom, camLeft, camRight;
+    vector<Camera> cameras;
+    viewer1->getCameras(cameras);
+    camDefault = cameras[0];
+    camTop = camDefault;
     camTop.pos[1] = 15.0;
     camTop.view[1] = 0;
     camTop.view[1] = -1;
+    camBottom = camDefault;
     camBottom.pos[1] = -15.0;
     camBottom.view[1] = 0;
     camBottom.view[1] = 1;
+    camLeft = camDefault;
     camLeft.pos[0] = -15.0;
+    camRight = camDefault;
     camRight.pos[0] = 15.0;
-    cameraViews.push_back({ "Default", camDefault, 2.0 });
-    cameraViews.push_back({ "Top", camTop, 2.0 });
-    cameraViews.push_back({ "Bottom", camBottom, 2.0 });
-    cameraViews.push_back({ "Left", camLeft, 2.0 });
-    cameraViews.push_back({ "Right", camRight, 2.0 });
+    cameraViews.push_back({ "Default", camDefault, 5.0 });
+    cameraViews.push_back({ "Top", camTop, 5.0 });
+    cameraViews.push_back({ "Bottom", camBottom, 5.0 });
+    cameraViews.push_back({ "Left", camLeft, 5.0 });
+    cameraViews.push_back({ "Right", camRight, 5.0 });
 
     updateComboBoxes();
 
@@ -185,6 +192,9 @@ MainWindow::MainWindow(QWidget *parent)
     ui->exponentInput->setValidator(validator);
 
     connect(ui->updateButton, &QPushButton::clicked, this, [=]() { colorizeHandler(); });
+
+    connect(ui->exportTargetButton, &QPushButton::clicked, this, [=]() { exportImage(1); });
+    connect(ui->exportReferenceButton, &QPushButton::clicked, this, [=]() { exportImage(2); });
 }
 
 /**
@@ -932,7 +942,7 @@ void MainWindow::mouseCallback(const MouseEvent& event, int viewerID) {
  * @param none
  * @return void
  */
-void MainWindow::on_exportButton_clicked() {
+void MainWindow::exportImage(int id) {
     // Open file save dialog
     QString filePath = QFileDialog::getSaveFileName(
         this,
@@ -952,7 +962,13 @@ void MainWindow::on_exportButton_clicked() {
     }
 
     // Export PNG
-    viewer1->saveScreenshot(filePath.toStdString());
+    if (id == 1) {
+        viewer1->saveScreenshot(filePath.toStdString());
+    }
+    else {
+        viewer2->saveScreenshot(filePath.toStdString());
+    }
+
 
     // Notify the user that the snapshot was exported
     QMessageBox::information(this, "Success", "Snapshot exported successfully!");

@@ -90,6 +90,7 @@ QString Compute::computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointClou
     cv::Mat signature1(cloud_a->size(), 4, CV_32F); // [weight, x, y, z]
     cv::Mat signature2(cloud_b->size(), 4, CV_32F); // [weight, x, y, z]
 
+
     for (size_t i = 0; i < cloud_a->size(); ++i) {
         signature1.at<float>(i, 0) = 1.0f; // Uniform weight
         signature1.at<float>(i, 1) = cloud_a->points[i].x;
@@ -107,6 +108,7 @@ QString Compute::computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointClou
     signature1.col(0) /= cv::sum(signature1.col(0))[0];
     signature2.col(0) /= cv::sum(signature2.col(0))[0];
 
+    cout << "start" << endl;
     float emd = cv::EMD(signature1, signature2, cv::DIST_L2);
 
     return QString("Earth Mover's Distance: %1\n").arg(static_cast<double>(emd));

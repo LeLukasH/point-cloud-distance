@@ -15,7 +15,7 @@ git clone https://github.com/LeLukasH/point-cloud-distance.git
 ### ✅ Quick Start (Precompiled)
 
 1. Download the `exe/` folder.
-2. Run the `PointCloudQuality.exe` file.
+2. Run the `point-cloud-distance.exe` file.
 
 No installation required.
 

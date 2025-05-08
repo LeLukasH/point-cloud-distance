@@ -126,9 +126,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2375936673a2defe0a57dcb9b274ec9d" id="r_a2375936673a2defe0a57dcb9b274ec9d"><td class="memItemLeft" align="right" valign="top">QString&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2375936673a2defe0a57dcb9b274ec9d">computeEarthMoversDistance</a> (PointCloudT::Ptr &amp;cloud_a, PointCloudT::Ptr &amp;cloud_b)</td></tr>
 <tr class="memdesc:a2375936673a2defe0a57dcb9b274ec9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Computes the Earth Movers Distance between two point clouds.  <br /></td></tr>
 <tr class="separator:a2375936673a2defe0a57dcb9b274ec9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab040e77722af20fead9e15739d6d8560" id="r_ab040e77722af20fead9e15739d6d8560"><td class="memItemLeft" align="right" valign="top">QString&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab040e77722af20fead9e15739d6d8560">computeJensenShannonDivergence</a> (PointCloudT::Ptr &amp;cloud_a, PointCloudT::Ptr &amp;cloud_b)</td></tr>
-<tr class="memdesc:ab040e77722af20fead9e15739d6d8560"><td class="mdescLeft">&#160;</td><td class="mdescRight">Computes the Jensen-Shannon Divergence between two point clouds.  <br /></td></tr>
-<tr class="separator:ab040e77722af20fead9e15739d6d8560"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a76c0d4f1c4f97a57a24b16dafaccd737" id="r_a76c0d4f1c4f97a57a24b16dafaccd737"><td class="memItemLeft" align="right" valign="top">QString&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a76c0d4f1c4f97a57a24b16dafaccd737">computeCustomMeasure1</a> (PointCloudT::Ptr &amp;cloud_a, PointCloudT::Ptr &amp;cloud_b)</td></tr>
 <tr class="memdesc:a76c0d4f1c4f97a57a24b16dafaccd737"><td class="mdescLeft">&#160;</td><td class="mdescRight">Computes a custom measure based on the number of identical points between two point clouds.  <br /></td></tr>
 <tr class="separator:a76c0d4f1c4f97a57a24b16dafaccd737"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -224,7 +221,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Computes a custom measure based on distances between two point clouds. </p>
-<p>This function calculates the average distance between points in two point clouds, <code>cloud_a</code> and <code>cloud_b</code>. It then computes the sum of distances that are greater than twice the average distance (outliers) and returns a string with the total outlier distance.</p>
+<p>This function calculates the median distance between points in two point clouds, <code>cloud_a</code> and <code>cloud_b</code>. It then computes the sum of distances that are greater than twice the median distance (outliers) and returns a string with the total outlier distance.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir">[in]</td><td class="paramname">cloud_a</td><td>First point cloud. </td></tr>
@@ -335,38 +332,6 @@ Public Member Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>A string containing the calculated Hausdorff distance. </dd></dl>
-
-</div>
-</div>
-<a id="ab040e77722af20fead9e15739d6d8560" name="ab040e77722af20fead9e15739d6d8560"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab040e77722af20fead9e15739d6d8560">&#9670;&#160;</a></span>computeJensenShannonDivergence()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">QString Compute::computeJensenShannonDivergence </td>
-          <td>(</td>
-          <td class="paramtype">PointCloudT::Ptr &amp;</td>          <td class="paramname"><span class="paramname"><em>cloud_a</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">PointCloudT::Ptr &amp;</td>          <td class="paramname"><span class="paramname"><em>cloud_b</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Computes the Jensen-Shannon Divergence between two point clouds. </p>
-<p>The Jensen-Shannon Divergence is a symmetrized and smoothed version of the Kullback-Leibler divergence, often used as a measure of similarity between two probability distributions.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">cloud_a</td><td>A pointer to the first point cloud. </td></tr>
-    <tr><td class="paramname">cloud_b</td><td>A pointer to the second point cloud. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>A string containing the calculated Jensen-Shannon Divergence. </dd></dl>
 
 </div>
 </div>

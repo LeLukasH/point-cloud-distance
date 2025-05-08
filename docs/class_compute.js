@@ -6,6 +6,5 @@ var class_compute =
     [ "computeCustomMeasure3", "class_compute.html#ac5e669ef770c21fe1976aedd989ca02b", null ],
     [ "computeEarthMoversDistance", "class_compute.html#a2375936673a2defe0a57dcb9b274ec9d", null ],
     [ "computeHausdorffDistance", "class_compute.html#a5f73bdacf72727de3c4d0075aa654135", null ],
-    [ "computeJensenShannonDivergence", "class_compute.html#ab040e77722af20fead9e15739d6d8560", null ],
     [ "getDistances", "class_compute.html#a60ca800e2a8981ba1435d46cbcb06603", null ]
 ];

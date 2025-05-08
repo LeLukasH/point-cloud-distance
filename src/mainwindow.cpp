@@ -228,13 +228,15 @@ void MainWindow::onCalculate() {
         logMessage = compute->computeChamferDistance(cloud1, cloud2);
     } else if (ui->earthMoversRadioButton->isChecked()) {
         logMessage = compute->computeEarthMoversDistance(cloud1, cloud2);
-    } else if (ui->jensenShannonRadioButton->isChecked()) {
+    }
+    /* else if (ui->jensenShannonRadioButton->isChecked()) {
         if (cloud1->size() != cloud2->size()) {
             QMessageBox::warning(this, "Error", "To calculate Jensen-Shannon Divergence, both point clouds must have the same number of points.");
             return;
         }
         logMessage = compute->computeJensenShannonDivergence(cloud1, cloud2);
     }
+    */
     else if (ui->custom1RadioButton->isChecked()) {
         logMessage = compute->computeCustomMeasure1(cloud1, cloud2);
     }

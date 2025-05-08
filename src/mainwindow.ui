@@ -743,13 +743,6 @@
            </widget>
           </item>
           <item>
-           <widget class="QRadioButton" name="jensenShannonRadioButton">
-            <property name="text">
-             <string>Jensen Shannon Divergence</string>
-            </property>
-           </widget>
-          </item>
-          <item>
            <widget class="QRadioButton" name="custom1RadioButton">
             <property name="text">
              <string>Identity Measure</string>

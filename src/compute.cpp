@@ -108,13 +108,13 @@ QString Compute::computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointClou
     signature1.col(0) /= cv::sum(signature1.col(0))[0];
     signature2.col(0) /= cv::sum(signature2.col(0))[0];
 
-    cout << "start" << endl;
     float emd = cv::EMD(signature1, signature2, cv::DIST_L2);
 
     return QString("Earth Mover's Distance: %1\n").arg(static_cast<double>(emd));
 }
 
-/**
+
+/*
  * @brief Calculates the Kullback-Leibler divergence between two probability distributions.
  *
  * The Kullback-Leibler divergence is a measure of how one probability distribution diverges
@@ -124,6 +124,7 @@ QString Compute::computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointClou
  * @param Q The second probability distribution.
  * @return The Kullback-Leibler divergence between P and Q.
  */
+/*
 double Compute::klDivergence(const vector<double> &P, const vector<double> &Q) {
     double kl_divergence = 0.0;
 
@@ -145,6 +146,7 @@ double Compute::klDivergence(const vector<double> &P, const vector<double> &Q) {
  * @param distances A vector containing the distances to be normalized.
  * @return A vector representing the normalized probability distribution.
  */
+/*
 vector<double> Compute::normalizeDistribution(const vector<float> &distances) {
     vector<double> distribution(distances.size());
     double sum = 0.0;
@@ -172,6 +174,7 @@ vector<double> Compute::normalizeDistribution(const vector<float> &distances) {
  * @param cloud_b A pointer to the second point cloud.
  * @return A string containing the calculated Jensen-Shannon Divergence.
  */
+/*
 QString Compute::computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b) {
     if (cloud_a->size() != cloud_b->size()) return QString("Point clouds do not have the same number of points.");
 
@@ -194,6 +197,7 @@ QString Compute::computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, Point
                "(0 indicates identical distributions and 1 indicates maximum dissimilarity)\n")
         .arg(jsd);
 }
+*/
 
 /**
  * @brief Computes a custom measure based on the number of identical points between two point clouds.

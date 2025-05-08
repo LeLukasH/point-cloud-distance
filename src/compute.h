@@ -22,7 +22,7 @@ public:
     QString computeHausdorffDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeChamferDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeEarthMoversDistance(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
-    QString computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
+    //QString computeJensenShannonDivergence(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeCustomMeasure1(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeCustomMeasure2(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b);
     QString computeCustomMeasure3(PointCloudT::Ptr &cloud_a, PointCloudT::Ptr &cloud_b, bool colorize = false);
@@ -30,8 +30,8 @@ public:
 private:
     MainWindow* mainWindow; // Store a pointer to MainWindow
 
-    static double klDivergence(const vector<double> &P, const vector<double> &Q);
-    static vector<double> normalizeDistribution(const vector<float> &distances);
+    //static double klDivergence(const vector<double> &P, const vector<double> &Q);
+    //static vector<double> normalizeDistribution(const vector<float> &distances);
 };
 
 #endif // COMPUTE_H

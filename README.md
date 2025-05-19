@@ -48,7 +48,7 @@ No installation required.
 - Export visualizations to PNG images (saves a snapshot of the current viewer's display)
 - Option to visualize missing data by classifying and colorizing missing points based on distance
 
-For a more detailed explanation of the features and their implementation, please refer to the end of Chapter 3 in my [bachelor thesis](path-to-bachelor-thesis.pdf).
+For a more detailed explanation of the features and their implementation, please refer to the end of Chapter 3 in my [bachelor thesis](BachelorThesis.pdf).
 
 ---
 
